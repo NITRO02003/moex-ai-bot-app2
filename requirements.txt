@@ -1,0 +1,9 @@
+tinkoff-investments
+pytz
+pandas
+numpy
+pyyaml
+fastapi
+uvicorn
+catboost
+aiohttp

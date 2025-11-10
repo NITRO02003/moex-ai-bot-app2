@@ -1,0 +1,52 @@
+# config.yaml
+broker:
+  type: tinkoff        # или 'finam', 'mock'
+  token: t.pf68gvXK_69LOXdccZkY_3spRvS1HZMZTiv6prMnQb7zXWQs9ZjoNegK5zffqJv3AxY1H8K2AJxnteQ5b-Z2cQ
+  account_id: 2239593684
+
+universe:
+  tickers: [GAZP, SBER, LKOH, TATN, ROSN, NVTK, YNDX]
+  bar: 1m              # 1m/5m/1h/d
+
+data:
+  history_days: 365
+  feature_store: ./data/features
+  news_enabled: false
+
+model:
+  kind: catboost       # catboost | tft | lstm | rl
+  target: next_5m_return
+  horizon: 5m
+  retrain:
+    schedule: "0 */6 * * *"  # каждые 6 часов
+    window_days: 120
+  thresholds:
+    long: 0.55
+    short: 0.45
+
+risk:
+  max_position_pct: 0.15
+  max_gross_leverage: 1.0
+  daily_loss_limit_pct: 2.5
+  per_symbol_loss_pct: 1.0
+  stop_loss_atr_mult: 2.0
+  take_profit_atr_mult: 3.0
+  kill_switch_drawdown_pct: 5.0
+
+execution:
+  algo: twap            # market | limit | vwap | twap
+  slice_sec: 30
+  max_slippage_bp: 15
+  post_only: true
+
+backtest:
+  slippage_bp: 10
+  fee_bp: 3
+  cash_start: 1_000_000
+  split:
+    train: "2023-01-01..2024-09-30"
+    test:  "2024-10-01..2025-09-30"
+
+logging:
+  level: INFO
+  metrics_push: prometheus
