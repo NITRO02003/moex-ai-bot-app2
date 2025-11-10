@@ -27,19 +27,58 @@ def make_models(seed=42):
     rf = RandomForestClassifier(n_estimators=80, max_depth=8, random_state=seed, n_jobs=-1)
     return base, rf
 
-def fit_offline_multi(prices_by_symbol: dict[str, pd.DataFrame], horizon: int=1, path=MODEL_PATH):
+def fit_offline_multi(prices: dict[str, pd.DataFrame], horizon: int = 1, path=MODEL_PATH):
+    """
+    Обучение по нескольким тикерам:
+    - строим признаки/таргеты по каждому символу;
+    - де-дублируем индексы, сортируем;
+    - конкатим и обучаем две модели (SGD, RF);
+    - сохраняем bundle.
+    """
     Xs, ys = [], []
-    for sym, df in prices_by_symbol.items():
-        if df is None or df.empty or 'close' not in df.columns: continue
-        X, y = dataset(df, horizon=horizon)
-        if len(X): Xs.append(X); ys.append(y)
-    if not Xs: raise RuntimeError('no data to train')
-    X = pd.concat(Xs).sort_index(); y = pd.concat(ys).reindex(X.index).fillna(0).astype(int)
+    for sym, px in prices.items():
+        if px is None or px.empty or "close" not in px:
+            continue
+        close = px["close"].astype(float)
+        # признаки
+        Xi = F.build(px)
+        Xi = Xi.loc[~Xi.index.duplicated(keep="last")].sort_index()
+        # таргет
+        yi = L.y_updown(close, horizon=horizon)
+        yi = yi.loc[~yi.index.duplicated(keep="last")].sort_index()
+        # выравниваем по пересечению индексов
+        idx = Xi.index.intersection(yi.index)
+        if len(idx) == 0:
+            continue
+        Xi = Xi.loc[idx]
+        yi = yi.loc[idx]
+        # чистим
+        Xi, yi = L.clean_xy(Xi, yi)
+        if len(Xi) == 0:
+            continue
+        Xs.append(Xi)
+        ys.append(yi)
+
+    if not Xs:
+        return {"n": 0, "cols": 0}
+
+    # после конкатенации ещё раз убираем дубликаты/NaN и сортируем
+    X = pd.concat(Xs, axis=0)
+    y = pd.concat(ys, axis=0)
+    # финальная синхронизация и де-дуп
+    X = X.loc[~X.index.duplicated(keep="last")].sort_index()
+    y = y.loc[~y.index.duplicated(keep="last")].sort_index()
+    idx = X.index.intersection(y.index)
+    X = X.loc[idx]
+    y = y.loc[idx].astype(int)
+
+    # обучение
     base, rf = make_models()
-    base.partial_fit(X.values, y.values, classes=np.array([0,1]))
+    base.partial_fit(X.values, y.values, classes=np.array([0, 1]))
     rf.fit(X.values, y.values)
-    joblib.dump({'base': base, 'rf': rf, 'cols': list(X.columns)}, path)
-    return {'n': len(X), 'cols': len(X.columns)}
+
+    joblib.dump({"base": base, "rf": rf, "cols": list(X.columns)}, path)
+    return {"n": int(len(X)), "cols": int(len(X.columns))}
 
 def load(path=MODEL_PATH):
     if os.path.exists(path):
