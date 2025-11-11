@@ -1,0 +1,26 @@
+{
+  "SBER": {
+    "final_equity": 1009850,
+    "total_return": 0.00985,
+    "max_drawdown": -0.003034976864520623,
+    "win_rate": 0.6666666666666666,
+    "profit_factor": 4.333333333333333,
+    "expectancy_ratio": 3283.333333333333,
+    "total_trades": 3,
+    "winning_trades": 2,
+    "losing_trades": 1,
+    "total_commissions": 150
+  },
+  "GAZP": {
+    "final_equity": 1009850,
+    "total_return": 0.00985,
+    "max_drawdown": -0.003034976864520623,
+    "win_rate": 0.6666666666666666,
+    "profit_factor": 4.333333333333333,
+    "expectancy_ratio": 3283.333333333333,
+    "total_trades": 3,
+    "winning_trades": 2,
+    "losing_trades": 1,
+    "total_commissions": 150
+  }
+}

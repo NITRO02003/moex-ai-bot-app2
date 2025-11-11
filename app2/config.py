@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
+from .paths import MODELS_DIR
 
 try:
     from app.config import config as _legacy
@@ -22,7 +23,7 @@ class SymbolsCfg:
 
 @dataclass
 class ModelCfg:
-    path: str = 'out/models/ai_strategy.pkl'
+    path: str = str(MODELS_DIR / 'ai_strategy.pkl')
     horizon: int = 1
     random_state: int = 42
 

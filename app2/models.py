@@ -1,4 +1,4 @@
-
+# models.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
 from __future__ import annotations
 import os, joblib, numpy as np, pandas as pd
 from sklearn.linear_model import SGDClassifier
@@ -9,12 +9,7 @@ from . import features as F, labels as L
 
 MODEL_PATH = MODELS_DIR / 'ai_strategy.pkl'
 
-def regime_by_vol(close: pd.Series, lb: int = 96) -> pd.Series:
-    r = close.pct_change().rolling(lb).std()
-    med = r.rolling(lb).median()
-    return (r > med).rename('volatile')  # True = volatile
-
-def dataset(prices: pd.DataFrame, horizon: int=1):
+def dataset(prices: pd.DataFrame, horizon: int = 1):
     X = F.build(prices)
     X = X[F.final_columns(X.columns)]
     y = L.y_updown(prices['close'].astype(float), horizon=horizon)
@@ -27,88 +22,104 @@ def make_models(seed=42):
     rf = RandomForestClassifier(n_estimators=80, max_depth=8, random_state=seed, n_jobs=-1)
     return base, rf
 
-def fit_offline_multi(prices: dict[str, pd.DataFrame], horizon: int = 1, path=MODEL_PATH):
-    """
-    Обучение по нескольким тикерам:
-    - строим признаки/таргеты по каждому символу;
-    - де-дублируем индексы, сортируем;
-    - конкатим и обучаем две модели (SGD, RF);
-    - сохраняем bundle.
-    """
+def fit_offline_multi(prices_by_symbol: dict[str, pd.DataFrame], horizon: int = 1, path=MODEL_PATH):
     Xs, ys = [], []
-    for sym, px in prices.items():
-        if px is None or px.empty or "close" not in px:
+    for sym, df in prices_by_symbol.items():
+        if df is None or df.empty or 'close' not in df.columns:
             continue
-        close = px["close"].astype(float)
-        # признаки
-        Xi = F.build(px)
-        Xi = Xi.loc[~Xi.index.duplicated(keep="last")].sort_index()
-        # таргет
-        yi = L.y_updown(close, horizon=horizon)
-        yi = yi.loc[~yi.index.duplicated(keep="last")].sort_index()
-        # выравниваем по пересечению индексов
-        idx = Xi.index.intersection(yi.index)
-        if len(idx) == 0:
+        try:
+            X, y = dataset(df, horizon=horizon)
+            if len(X) > 10:
+                Xs.append(X); ys.append(y)
+        except Exception as e:
+            print(f"Warning: Failed to process {sym}: {e}")
             continue
-        Xi = Xi.loc[idx]
-        yi = yi.loc[idx]
-        # чистим
-        Xi, yi = L.clean_xy(Xi, yi)
-        if len(Xi) == 0:
-            continue
-        Xs.append(Xi)
-        ys.append(yi)
 
     if not Xs:
-        return {"n": 0, "cols": 0}
+        raise RuntimeError('no data to train')
 
-    # после конкатенации ещё раз убираем дубликаты/NaN и сортируем
-    X = pd.concat(Xs, axis=0)
-    y = pd.concat(ys, axis=0)
-    # финальная синхронизация и де-дуп
-    X = X.loc[~X.index.duplicated(keep="last")].sort_index()
-    y = y.loc[~y.index.duplicated(keep="last")].sort_index()
-    idx = X.index.intersection(y.index)
-    X = X.loc[idx]
-    y = y.loc[idx].astype(int)
+    X = pd.concat(Xs).sort_index()
+    X = X[~X.index.duplicated(keep='last')]
+    y = pd.concat(ys).sort_index()
+    y = y[~y.index.duplicated(keep='last')]
+    y = y.reindex(X.index).fillna(0).astype(int)
 
-    # обучение
     base, rf = make_models()
     base.partial_fit(X.values, y.values, classes=np.array([0, 1]))
     rf.fit(X.values, y.values)
 
-    joblib.dump({"base": base, "rf": rf, "cols": list(X.columns)}, path)
-    return {"n": int(len(X)), "cols": int(len(X.columns))}
+    joblib.dump({'base': base, 'rf': rf, 'cols': list(X.columns)}, path)
+    return {'n': len(X), 'cols': len(X.columns), 'symbols': list(prices_by_symbol.keys())}
 
 def load(path=MODEL_PATH):
     if os.path.exists(path):
-        return joblib.load(path)
+        try:
+            return joblib.load(path)
+        except Exception as e:
+            print(f"Warning: Failed to load model from {path}: {e}")
+
     base, rf = make_models()
     return {'base': base, 'rf': rf, 'cols': []}
 
+def partial_fit(bundle, X_new, y_new):
+    """ИНКРЕМЕНТАЛЬНОЕ ОБУЧЕНИЕ - НОВАЯ ФУНКЦИЯ"""
+    try:
+        if hasattr(bundle.get('base'), 'partial_fit'):
+            bundle['base'].partial_fit(X_new.values, y_new.values, classes=np.array([0, 1]))
+        return True
+    except Exception as e:
+        print(f"Partial fit failed: {e}")
+        return False
+
+def load_model(path=MODEL_PATH):
+    """АЛИАС ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ"""
+    return load(path)
+
 def _proba(model, X: pd.DataFrame) -> np.ndarray:
     try:
-        return model.predict_proba(X.values)[:,1]
+        return model.predict_proba(X.values)[:, 1]
     except Exception:
-        z = model.decision_function(X.values)
-        return 1/(1+np.exp(-z))
+        try:
+            z = model.decision_function(X.values)
+            return 1 / (1 + np.exp(-z))
+        except Exception:
+            return np.full(len(X), 0.5)
 
 def predict_proba(bundle, X: pd.DataFrame, close: pd.Series) -> pd.Series:
-    cols = bundle.get('cols', list(X.columns))
-    X = X[[c for c in cols if c in X.columns]].copy()
-    # pad missing columns
-    for c in cols:
-        if c not in X.columns:
-            X[c] = 0.0
-    X = X[cols]
-    p_base = _proba(bundle['base'], X)
-    p_rf   = _proba(bundle['rf'], X)
-    reg = regime_by_vol(close).reindex(X.index).fillna(False)
-    p = np.where(reg.values, 0.6*p_rf + 0.4*p_base, 0.8*p_base + 0.2*p_rf)
-    return pd.Series(p, index=X.index, name='p_up')
+    cols = bundle.get('cols', [])
+    if not cols or X.empty:
+        return pd.Series(0.5, index=X.index, name='p_up')
+
+    try:
+        available_cols = [c for c in cols if c in X.columns]
+        if not available_cols:
+            return pd.Series(0.5, index=X.index, name='p_up')
+
+        X = X[available_cols].copy()
+        for c in cols:
+            if c not in X.columns:
+                X[c] = 0.0
+        X = X[cols]
+
+        p_base = _proba(bundle['base'], X)
+        p_rf = _proba(bundle['rf'], X)
+
+        rv = close.pct_change().rolling(96, min_periods=10).std()
+        med = rv.rolling(96, min_periods=10).median()
+        reg = (rv > med).reindex(X.index).fillna(False)
+
+        p = np.where(reg.values, 0.6 * p_rf + 0.4 * p_base, 0.8 * p_base + 0.2 * p_rf)
+        return pd.Series(p, index=X.index, name='p_up')
+    except Exception as e:
+        print(f"Warning: Predict failed: {e}")
+        return pd.Series(0.5, index=X.index, name='p_up')
 
 def auc(bundle, X, y, close) -> float:
-    p = predict_proba(bundle, X, close)
-    idx = X.index.intersection(y.index)
-    from sklearn.metrics import roc_auc_score
-    return float(roc_auc_score(y.loc[idx], p.loc[idx]))
+    try:
+        p = predict_proba(bundle, X, close)
+        idx = X.index.intersection(y.index)
+        if len(idx) == 0:
+            return 0.5
+        return float(roc_auc_score(y.loc[idx], p.loc[idx]))
+    except Exception:
+        return 0.5

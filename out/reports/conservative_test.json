@@ -1,0 +1,24 @@
+{
+  "SBER": {
+    "final_equity": 47519117.10322007,
+    "total_return": 46.51911710322007,
+    "max_drawdown": -0.16760020848936297,
+    "win_rate": 0.0863210386037314,
+    "profit_factor": 1.284217686071962,
+    "expectancy_ratio": 0.9930942345281352,
+    "sharpe_like": 1.768478092612477,
+    "calmar_like": 277.5600193013631,
+    "trade_freq_proxy": 22.038509273943323
+  },
+  "GAZP": {
+    "final_equity": 40272547.37010676,
+    "total_return": 39.27254737010676,
+    "max_drawdown": -0.21560890091545037,
+    "win_rate": 0.08986947773898987,
+    "profit_factor": 1.2091158964648818,
+    "expectancy_ratio": 0.924536380075309,
+    "sharpe_like": 1.5489487532898683,
+    "calmar_like": 182.14715256819213,
+    "trade_freq_proxy": 22.86727692732037
+  }
+}

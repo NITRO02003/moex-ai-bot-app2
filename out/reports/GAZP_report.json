@@ -1,0 +1,14 @@
+{
+  "final_equity": 994456.13,
+  "total_return": -0.005544,
+  "max_drawdown": -0.012851,
+  "win_rate": 0.0772,
+  "profit_factor": 2.572,
+  "expectancy_ratio": -4.11,
+  "total_trades": 1348,
+  "winning_trades": 104,
+  "losing_trades": 1244,
+  "total_commissions": 25189.17,
+  "gross_pnl": 19645.3,
+  "net_pnl": -5543.87
+}
