@@ -1,4 +1,0 @@
-=== Metrics Summary ===
-pass1: n=4311 pnl_sum=-41304.85 pnl_mean=-9.5813 win_rate=0.2893
-pass2: n=4 pnl_sum=-2235.37 pnl_mean=-558.8415 win_rate=0.0000
-thresholds: {"thr_sig": 0.9373, "thr_reg": 0.9989}

@@ -1,0 +1,30 @@
+{
+  "SBER": {
+    "final_equity": 1000000.0,
+    "total_return": 0.0,
+    "max_drawdown": 0.0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "expectancy_ratio": 0.0,
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "total_commissions": 0.0,
+    "gross_pnl": 0.0,
+    "net_pnl": 0.0
+  },
+  "GAZP": {
+    "final_equity": 1000000.0,
+    "total_return": 0.0,
+    "max_drawdown": 0.0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "expectancy_ratio": 0.0,
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "total_commissions": 0.0,
+    "gross_pnl": 0.0,
+    "net_pnl": 0.0
+  }
+}

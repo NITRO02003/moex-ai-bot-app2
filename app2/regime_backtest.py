@@ -1,269 +1,151 @@
-# regime_backtest.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
 from __future__ import annotations
-import pandas as pd
-import numpy as np
-import json
-from datetime import datetime
-from app2 import data as D, models as M, risk as R, backtest as B, features as F
-from app2.backtest import run_symbol, BtParams
-from app2.gb_backtest_system import GBBacktestSystem
+from dataclasses import dataclass
+import numpy as np, pandas as pd
+from . import features as F, models as M, risk as R, metrics as MX
 
+@dataclass
+class RegimeBtParams:
+    commission: float = 0.0005
+    slippage_bps: float = 2.0
+    atr_len: int = 14
+    tp_mult: float = 1.5
+    sl_mult: float = 1.0
+    trail_mult: float = 1.0
+    min_gap: int = 8
+    max_hold: int = 120
+    cooldown: int = 10
+    vol_lb: int = 48
+    z_thr: float = 0.5
+    use_filters: bool = True
+    th_long: float = 0.58
+    th_short: float = 0.42
+    per_trade_risk: float = 0.001
 
-def create_empty_signal(prices):
-    return pd.DataFrame({
-        'p': 0.5, 'side': 0, 'size': 0.0
-    }, index=prices.index)
+def _ema_trend(close: pd.Series, fast=20, slow=60):
+    ema_f = close.ewm(span=fast, adjust=False).mean()
+    ema_s = close.ewm(span=slow, adjust=False).mean()
+    slope = ema_f.diff()
+    return (ema_f > ema_s) & (slope > 0), (ema_f < ema_s) & (slope < 0)
 
+def _vol_ok(vol: pd.Series, q=0.2):
+    thr = vol.rolling(100).quantile(q)
+    return (vol >= thr).fillna(False)
 
-def simple_regime_strategy(prices: pd.DataFrame, model_bundle, rp, equity: float, threshold: float = 0.5):
-    if len(prices) < 100:
-        return create_empty_signal(prices)
+def _zscore(s: pd.Series, lb: int):
+    m = s.rolling(lb).mean()
+    sd = s.rolling(lb).std()
+    return (s - m) / sd.replace(0, np.nan)
 
+def _atr(df: pd.DataFrame, n: int) -> pd.Series:
+    high, low, close = df['high'].astype(float), df['low'].astype(float), df['close'].astype(float)
+    prev_close = close.shift(1)
+    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    return tr.rolling(n).mean()
+
+def _turnover_cost(price: float, d_shares: float, commission: float, slippage_bps: float) -> float:
+    turn = abs(d_shares) * price
+    comm = turn * float(commission)
+    slip = turn * float(slippage_bps) / 10_000.0
+    return comm + slip
+
+def _entry_filter(df: pd.DataFrame, p: RegimeBtParams):
+    close = df['close'].astype(float)
+    ret1 = close.pct_change().fillna(0.0)
+    z = _zscore(ret1, p.vol_lb).fillna(0.0)
+    long_mom = z >= p.z_thr
+    short_mom = z <= -p.z_thr
+    if p.use_filters:
+        up, dn = _ema_trend(close)
+        vol_ok = _vol_ok(df['volume'].fillna(0), 0.2)
+        long_mom &= up & vol_ok
+        short_mom &= dn & vol_ok
+    return long_mom, short_mom
+
+def run_symbol(prices: pd.DataFrame, model_bundle, rp_global: R.RiskParams | None, p: RegimeBtParams,
+               equity0: float = 1_000_000.0, th_long: float | None = None, th_short: float | None = None):
+    # features + proba
+    X = F.build(prices); X = X[F.final_columns(X.columns)]
     close = prices['close'].astype(float)
-    volume = prices.get('volume', pd.Series(1, index=prices.index))
+    prob_up = M.predict_proba(model_bundle, X, close).reindex(prices.index).ffill().bfill()
+    floor = R.conf_gate(prob_up, close, rp_global)
+    prob_up = prob_up.where(prob_up >= floor, 0.0)
 
-    # Индикаторы
-    volatility = close.pct_change().rolling(20).std()
-    trend_strength = abs(close.rolling(10).mean() - close.rolling(30).mean()) / close
-    volume_z = (volume - volume.rolling(20).mean()) / volume.rolling(20).std()
+    long_mom, short_mom = _entry_filter(prices, p)
+    TL = float(th_long) if th_long is not None else float(p.th_long)
+    TS = float(th_short) if th_short is not None else float(p.th_short)
 
-    # Квантили
-    vol_quantile = volatility.quantile(0.7)
-    trend_quantile = trend_strength.quantile(0.7)
+    atr = _atr(prices, p.atr_len).reindex(prices.index).ffill()
+    equity = equity0
+    pos = 0          # +1 long, -1 short, 0 flat
+    entry_px = 0.0; peak = 0.0; trough = 0.0
+    shares = 0.0; bars_in_pos = 0; cool = 0
 
-    # Режимы - ИСПРАВЛЕНО: правильное определение
-    high_vol = volatility > vol_quantile
-    strong_trend = trend_strength > trend_quantile
-    high_volume = volume_z > 1.0
+    pnl = pd.Series(0.0, index=prices.index)
+    position_series = pd.Series(0, index=prices.index, dtype='int8')
+    last_trade_i = -10_000
 
-    # Векторизованное определение режима - ИСПРАВЛЕНО
-    regime_conditions = pd.Series('RANGING', index=prices.index)
-    regime_conditions[high_vol] = 'VOLATILE'
-    regime_conditions[strong_trend & high_volume] = 'TRENDING'
-    regime_conditions[strong_trend & ~high_volume] = 'TRENDING'
+    for i, ts in enumerate(prices.index):
+        px = float(close.iloc[i])
+        this_atr = float(atr.iloc[i]) if not np.isnan(atr.iloc[i]) else 0.0
 
-    # Параметры режимов
-    regime_params = {
-        'VOLATILE': {'threshold': 0.55, 'multiplier': 0.5},  # ПОНИЖЕН порог
-        'TRENDING': {'threshold': 0.52, 'multiplier': 1.2},  # ПОНИЖЕН порог
-        'RANGING': {'threshold': 0.53, 'multiplier': 0.8}  # ПОНИЖЕН порог
-    }
+        if cool > 0:
+            cool -= 1
 
-    # Генерация сигналов
-    X = F.build(prices)
-    p = M.predict_proba(model_bundle, X, prices['close'].astype(float))
+        # === EXIT ===
+        if pos != 0:
+            bars_in_pos += 1
+            if pos > 0:
+                peak = max(peak, px)
+                hit_sl = px <= entry_px - p.sl_mult * this_atr
+                hit_tp = px >= entry_px + p.tp_mult * this_atr
+                trail_ok = p.trail_mult > 0 and this_atr > 0 and px <= (peak - p.trail_mult * this_atr)
+                time_exit = (p.max_hold > 0 and bars_in_pos >= p.max_hold)
+                if hit_sl or hit_tp or trail_ok or time_exit:
+                    d_sh = -shares                # sell to close long
+                    cash_flow = -d_sh * px        # self-financing: sell => cash_flow > 0
+                    cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
+                    pnl.iloc[i] += cash_flow - cost; equity += cash_flow - cost
+                    pos = 0; shares = 0.0; entry_px = 0.0; peak = 0.0; trough = 0.0
+                    cool = p.cooldown; bars_in_pos = 0; last_trade_i = i
+            else:
+                trough = min(trough, px)
+                hit_sl = px >= entry_px + p.sl_mult * this_atr
+                hit_tp = px <= entry_px - p.tp_mult * this_atr
+                trail_ok = p.trail_mult > 0 and this_atr > 0 and px >= (trough + p.trail_mult * this_atr)
+                time_exit = (p.max_hold > 0 and bars_in_pos >= p.max_hold)
+                if hit_sl or hit_tp or trail_ok or time_exit:
+                    d_sh = -shares                # buy to cover short (shares<0 => d_sh>0)
+                    cash_flow = -d_sh * px        # buy => cash_flow < 0
+                    cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
+                    pnl.iloc[i] += cash_flow - cost; equity += cash_flow - cost
+                    pos = 0; shares = 0.0; entry_px = 0.0; peak = 0.0; trough = 0.0
+                    cool = p.cooldown; bars_in_pos = 0; last_trade_i = i
 
-    # ДИАГНОСТИКА: выводим статистику предсказаний
-    print(f"   📊 Статистика предсказаний:")
-    print(f"      Min: {p.min():.3f}, Max: {p.max():.3f}, Mean: {p.mean():.3f}")
-    print(f"      >0.5: {(p > 0.5).sum()}, >0.55: {(p > 0.55).sum()}")
+        # === ENTRY ===
+        if pos == 0 and cool == 0 and (i - last_trade_i) >= p.min_gap:
+            pr = float(prob_up.iloc[i])
+            enter_long = (pr >= TL) and bool(long_mom.iloc[i])
+            enter_short = (pr <= TS) and bool(short_mom.iloc[i])
+            if enter_long or enter_short:
+                rp_tmp = rp_global or R.RiskParams(per_trade_risk=p.per_trade_risk)
+                base_size = R.position_size(close.iloc[:i+1], pd.Series(prob_up.iloc[:i+1]), equity, rp_tmp).iloc[-1]
+                if base_size <= 0 or np.isnan(base_size):
+                    base_size = equity * p.per_trade_risk / max(px, 1e-9)
+                sh = base_size / max(px, 1e-9)
+                if enter_short:
+                    sh = -abs(sh); pos = -1
+                else:
+                    sh = abs(sh); pos = 1
+                entry_px = px; peak = px; trough = px
+                d_sh = sh                         # from 0 to sh
+                cash_flow = -d_sh * px            # buy (d_sh>0) -> cash -, short (d_sh<0) -> cash +
+                cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
+                pnl.iloc[i] += cash_flow - cost; equity += cash_flow - cost
+                shares = sh; bars_in_pos = 0; last_trade_i = i
 
-    # Применяем пороги - ИСПРАВЛЕНО: правильная инициализация
-    long_cond = pd.Series(False, index=p.index, dtype=bool)
-    short_cond = pd.Series(False, index=p.index, dtype=bool)
+        position_series.iloc[i] = pos
 
-    for regime, params in regime_params.items():
-        regime_mask = (regime_conditions == regime)
-        regime_threshold = params['threshold']
-
-        # ИСПРАВЛЕНО: правильное присвоение с булевыми значениями
-        long_cond_regime = (p > regime_threshold) & regime_mask
-        short_cond_regime = (p < (1 - regime_threshold)) & regime_mask
-
-        long_cond = long_cond | long_cond_regime
-        short_cond = short_cond | short_cond_regime
-
-    side = pd.Series(0, index=p.index)
-    side[long_cond] = 1
-    side[short_cond] = -1
-
-    # Размер позиции
-    size_multiplier = pd.Series(1.0, index=prices.index)
-    for regime, params in regime_params.items():
-        regime_mask = (regime_conditions == regime)
-        size_multiplier[regime_mask] = params['multiplier']
-
-    try:
-        from app2.risk import position_size
-        base_size = position_size(prices['close'].astype(float), p, equity, rp)
-        dynamic_size = base_size * size_multiplier
-    except Exception as e:
-        print(f"⚠️  Ошибка расчета размера: {e}")
-        dynamic_size = side * (equity * 0.02 * size_multiplier)
-
-    result = pd.DataFrame({
-        'p': p, 'side': side, 'size': dynamic_size,
-        'regime': regime_conditions
-    }, index=prices.index)
-
-    # Статистика
-    regime_stats = result['regime'].value_counts()
-    signals_by_regime = result[result['side'] != 0]['regime'].value_counts()
-
-    print(f"🎯 СТАТИСТИКА РЕЖИМОВ:")
-    for regime in regime_stats.index:
-        total_bars = regime_stats[regime]
-        signals = signals_by_regime.get(regime, 0)
-        print(f"   {regime}: {total_bars} баров, {signals} сигналов")
-
-    return result
-
-
-def debug_data_quality(symbol: str, prices: pd.DataFrame):
-    """Проверка качества данных и предсказаний"""
-    if prices.empty:
-        print(f"❌ Нет данных для {symbol}")
-        return
-
-    print(f"\n📊 ДИАГНОСТИКА ДАННЫХ {symbol}:")
-    print(f"   Период: {prices.index.min()} - {prices.index.max()}")
-    print(f"   Баров: {len(prices)}")
-    print(f"   Columns: {prices.columns.tolist()}")
-
-    # Проверяем предсказания
-    from app2 import models as M, features as F
-    bundle = M.load()
-    X = F.build(prices)
-    p = M.predict_proba(bundle, X, prices['close'].astype(float))
-
-    print(f"   Предсказания: min={p.min():.3f}, max={p.max():.3f}")
-    print(f"   >0.5: {(p > 0.5).sum()}, >0.6: {(p > 0.6).sum()}, >0.7: {(p > 0.7).sum()}")
-
-
-def debug_simple_strategy(prices: pd.DataFrame, model_bundle, rp, equity: float, threshold: float = 0.5):
-    """Упрощенная стратегия для отладки"""
-    from app2 import features as F, models as M
-
-    if len(prices) < 100:
-        return create_empty_signal(prices)
-
-    X = F.build(prices)
-    p = M.predict_proba(model_bundle, X, prices['close'].astype(float))
-
-    # ПРОСТЫЕ УСЛОВИЯ
-    long_cond = p > 0.55
-    short_cond = p < 0.45
-
-    side = pd.Series(0, index=p.index)
-    side[long_cond] = 1
-    side[short_cond] = -1
-
-    # ФИКСИРОВАННЫЙ РАЗМЕР
-    size = side * (equity * 0.02)
-
-    # ДИАГНОСТИКА
-    print(f"🔍 ДИАГНОСТИКА СТРАТЕГИИ:")
-    print(f"   Всего баров: {len(p)}")
-    print(f"   Предсказания: min={p.min():.3f}, max={p.max():.3f}, mean={p.mean():.3f}")
-    print(f"   Long сигналов (p>0.55): {(p > 0.55).sum()}")
-    print(f"   Short сигналов (p<0.45): {(p < 0.45).sum()}")
-    print(f"   Активных сигналов: {len(side[side != 0])}")
-
-    return pd.DataFrame({'p': p, 'side': side, 'size': size}, index=prices.index)
-
-
-def run_regime_backtest():
-    """Запуск бэктеста с режимной стратегией"""
-
-    print("🚀 ЗАПУСК РЕЖИМНОГО БЭКТЕСТА")
-    print("=" * 50)
-
-    symbols = ['SBER', 'GAZP']  # Тестируем на 2 тикерах для начала
-
-    # Инициализация системы
-    system = GBBacktestSystem()
-
-    # Загрузка данных
-    prices_data = system.load_and_prepare_data(symbols, '2023-01-01', '2024-01-01')  # Укороченный период для теста
-
-    for symbol in symbols:
-        if symbol in prices_data:
-            debug_data_quality(symbol, prices_data[symbol])
-
-
-    if not prices_data:
-        print("❌ Нет данных для тестирования")
-        return
-
-    # Обучение модели
-    if not system.train_gb_model(prices_data):
-        print("❌ Ошибка обучения модели")
-        return
-
-    # Настройки бэктеста
-    rp = R.from_config()
-    bt = BtParams(commission=0.0005, slippage_bps=1.0, horizon=2)
-
-    results = {}
-
-    for symbol in symbols:
-        if symbol not in prices_data:
-            continue
-
-        print(f"\n🔍 Тестируем {symbol}...")
-
-        try:
-            # Создаем совместимый bundle
-            gb_bundle = {
-                'model': system.gb_model,
-                'feature_names': system.feature_names,
-                'predict_proba': lambda X, close: system.gb_predict(X, close)
-            }
-
-            # Временная подмена стратегии
-            from app2.strategy import emergency_debug_strategy
-            import app2.strategy as S
-            original_strategy = S.signal_and_size
-            S.signal_and_size = emergency_debug_strategy
-
-            result = run_symbol(prices_data[symbol], gb_bundle, rp, bt, 1000000.0, threshold=threshold)
-            results[symbol] = result
-
-            # Восстанавливаем стратегию
-            S.signal_and_size = original_strategy
-
-            # Вывод результатов
-            metrics = result['metrics']
-            print(f"   📊 РЕЗУЛЬТАТЫ:")
-            print(f"      Сделок: {metrics['total_trades']}")
-            print(f"      Доходность: {metrics['total_return']:.2%}")
-            print(f"      Win Rate: {metrics['win_rate']:.1%}")
-            print(f"      Комиссии: {metrics['total_commissions']:,.0f} руб")
-            print(f"      Чистая прибыль: {metrics['net_pnl']:,.0f} руб")
-
-        except Exception as e:
-            print(f"   ❌ Ошибка: {e}")
-            import traceback
-            traceback.print_exc()
-
-
-    # Сохранение результатов
-    if results:
-        summary = {}
-        for symbol, result in results.items():
-            summary[symbol] = result['metrics']
-        from .paths import REPORTS_DIR
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"regime_backtest_results_{timestamp}.json"
-        path = REPORTS_DIR / filename
-
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(summary, f, ensure_ascii=False, indent=2)
-
-        print(f"\n💾 Результаты сохранены в {path}")
-
-
-    protocol = TransferProtocol()
-    protocol.update_auto_report(
-        latest_results=summary,  # результаты бэктеста
-        current_experiments="Testing simplified regime strategy with VOLA+TREND core",
-        problems="Zero trades in backtest - debugging signal generation",
-        decisions="Temporarily simplifying model to get baseline working
-
-
-    return results
-
-
-if __name__ == "__main__":
-    run_regime_backtest()
+    equity_curve = pnl.cumsum() + equity0
+    stats = MX.summarize(equity_curve, pnl)
+    stats['trades_est'] = int((position_series.diff().abs() > 0).sum() // 2)
+    return {'equity': equity_curve, 'pnl': pnl, 'position': position_series, 'metrics': stats}
