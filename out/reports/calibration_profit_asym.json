@@ -1,0 +1,50 @@
+{
+  "SBER": {
+    "threshold": 0.5,
+    "th_long": 0.63,
+    "th_short": 0.63,
+    "n": 57910,
+    "objective": "profit",
+    "score": 4.395961775065231e-07
+  },
+  "GAZP": {
+    "threshold": 0.5,
+    "th_long": 0.4,
+    "th_short": 0.4,
+    "n": 57906,
+    "objective": "profit",
+    "score": 2.274635468262114e-05
+  },
+  "LKOH": {
+    "threshold": 0.5,
+    "th_long": 0.455,
+    "th_short": 0.455,
+    "n": 57910,
+    "objective": "profit",
+    "score": -1.3058265936782238e-06
+  },
+  "GMKN": {
+    "threshold": 0.5,
+    "th_long": 0.62,
+    "th_short": 0.62,
+    "n": 57573,
+    "objective": "profit",
+    "score": 1.8991029842704961e-06
+  },
+  "ROSN": {
+    "threshold": 0.5,
+    "th_long": 0.41500000000000004,
+    "th_short": 0.41500000000000004,
+    "n": 57908,
+    "objective": "profit",
+    "score": -7.215940967129315e-06
+  },
+  "YNDX": {
+    "threshold": 0.5,
+    "th_long": 0.615,
+    "th_short": 0.615,
+    "n": 46075,
+    "objective": "profit",
+    "score": 4.267264874991554e-06
+  }
+}

@@ -1,38 +1,53 @@
 {
-  "SBER": {
-    "threshold": 0.4,
-    "n": 57910,
-    "objective": "f1",
-    "score": 0.33607678575568595
-  },
-  "GAZP": {
-    "threshold": 0.4,
-    "n": 57906,
-    "objective": "f1",
-    "score": 0.03040028213718921
-  },
-  "LKOH": {
-    "threshold": 0.4,
-    "n": 57910,
-    "objective": "f1",
-    "score": 0.3647180316091954
-  },
-  "GMKN": {
-    "threshold": 0.4,
-    "n": 57573,
-    "objective": "f1",
-    "score": 0.20254936849167224
-  },
-  "ROSN": {
-    "threshold": 0.4,
-    "n": 57908,
-    "objective": "f1",
-    "score": 0.004213891310665505
-  },
-  "YNDX": {
-    "threshold": 0.4,
-    "n": 46075,
-    "objective": "f1",
-    "score": 0.28222711544510853
+  "timestamp": "2025-11-14T12:06:02+03:00",
+  "calibration": {
+    "SBER": {
+      "threshold": 0.5,
+      "th_long": 0.445,
+      "th_short": 0.445,
+      "n": 57910,
+      "objective": "profit",
+      "score": -4.03578770184742e-06
+    },
+    "GAZP": {
+      "threshold": 0.5,
+      "th_long": 0.445,
+      "th_short": 0.445,
+      "n": 57906,
+      "objective": "profit",
+      "score": 7.793938244066122e-06
+    },
+    "LKOH": {
+      "threshold": 0.5,
+      "th_long": 0.47000000000000003,
+      "th_short": 0.47000000000000003,
+      "n": 57910,
+      "objective": "profit",
+      "score": -1.034593483686755e-06
+    },
+    "GMKN": {
+      "threshold": 0.5,
+      "th_long": 0.455,
+      "th_short": 0.455,
+      "n": 57573,
+      "objective": "profit",
+      "score": 1.7563511122509237e-06
+    },
+    "ROSN": {
+      "threshold": 0.5,
+      "th_long": 0.47000000000000003,
+      "th_short": 0.47000000000000003,
+      "n": 57908,
+      "objective": "profit",
+      "score": -7.247803957070676e-06
+    },
+    "YNDX": {
+      "threshold": 0.5,
+      "th_long": 0.525,
+      "th_short": 0.525,
+      "n": 46075,
+      "objective": "profit",
+      "score": -1.2388303776470269e-05
+    }
   }
 }

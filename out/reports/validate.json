@@ -2,265 +2,157 @@
   "SBER": [
     {
       "auc_like": 0.47815431356414967,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.49339323467230445,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.4685906253801597,
-      "ret_like": -25.470904882916138,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -25.470904882916123
     },
     {
       "auc_like": 0.4929278102090687,
-      "ret_like": -16.388880654670174,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -16.388880654670174
     },
     {
       "auc_like": 0.49876978683563045,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.5218573539705996,
-      "ret_like": -6.402241202287937,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -6.402241202287933
     }
   ],
   "GAZP": [
     {
       "auc_like": 0.5102430380385431,
-      "ret_like": 1.990462774390243,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 1.9904627743902394
     },
     {
       "auc_like": 0.484107905982906,
-      "ret_like": -7.259223581069129,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -7.259223581069129
     },
     {
       "auc_like": 0.4530484298429843,
-      "ret_like": -34.265911914111555,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -34.265911914111555
     },
     {
       "auc_like": 0.4892757477334033,
-      "ret_like": -7.7623406820062515,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -7.762340682006253
     },
     {
       "auc_like": 0.4807123051558753,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.5423551238677289,
-      "ret_like": -16.20634491057123,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -16.206344910571225
     }
   ],
   "LKOH": [
     {
       "auc_like": 0.5054152675853756,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.4808201058201058,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.5149604286609333,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.5081217581217581,
-      "ret_like": -26.661144395114253,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -26.661144395114253
     },
     {
       "auc_like": 0.4750878373327353,
-      "ret_like": -19.50504776228582,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -19.505047762285812
     },
     {
       "auc_like": 0.5266237402015678,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     }
   ],
   "GMKN": [
     {
       "auc_like": 0.4908823529411765,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.47806553911205074,
-      "ret_like": -1.1395707534494441,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -1.139570753449445
     },
     {
       "auc_like": 0.5050023702003443,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.4852906636603166,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.4890754513810633,
-      "ret_like": -29.67968186863084,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -29.679681868630844
     },
     {
       "auc_like": 0.4926315003360634,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     }
   ],
   "ROSN": [
     {
       "auc_like": 0.5156147986942329,
-      "ret_like": -14.476416479339889,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -14.476416479339905
     },
     {
       "auc_like": 0.4857142857142857,
-      "ret_like": 5.9945068935872685,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 5.9945068935872685
     },
     {
       "auc_like": 0.49332628684855406,
-      "ret_like": -40.974320130817304,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -40.974320130817304
     },
     {
       "auc_like": 0.46350103572056556,
-      "ret_like": -38.466159245829395,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -38.466159245829395
     },
     {
       "auc_like": 0.49972143806432145,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.508691238384694,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     }
   ],
   "YNDX": [
     {
       "auc_like": 0.4818457798240255,
-      "ret_like": -7.872769975451621,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": -7.872769975451621
     },
     {
       "auc_like": 0.5375000000000001,
-      "ret_like": 8.799659139235459,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 8.799659139235459
     },
     {
       "auc_like": 0.5195023463931027,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.520100161276632,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.499102601987651,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     },
     {
       "auc_like": 0.5172864396654719,
-      "ret_like": 0.0,
-      "threshold": 0.55,
-      "th_long": null,
-      "th_short": null
+      "ret_like": 0.0
     }
   ]
 }

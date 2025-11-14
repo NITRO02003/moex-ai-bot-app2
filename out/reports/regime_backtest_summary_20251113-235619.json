@@ -1,0 +1,108 @@
+{
+  "timestamp": "2025-11-13T23:59:07.424841",
+  "runner": "regime-backtest",
+  "global_params": {
+    "commission": 0.0005,
+    "slippage_bps": 2.0,
+    "atr_len": 14,
+    "tp_mult": 1.5,
+    "sl_mult": 1.0,
+    "trail_mult": 1.0,
+    "min_gap": 8,
+    "max_hold": 120,
+    "cooldown": 10,
+    "vol_lb": 48,
+    "z_thr": 0.5,
+    "use_calibrated": true,
+    "symbols": [
+      "SBER",
+      "GAZP",
+      "LKOH",
+      "GMKN",
+      "ROSN",
+      "YNDX"
+    ]
+  },
+  "per_symbol_params": {
+    "SBER": {
+      "th_long": 0.4,
+      "th_short": 0.4
+    },
+    "GAZP": {
+      "th_long": 0.4,
+      "th_short": 0.4
+    },
+    "LKOH": {
+      "th_long": 0.4,
+      "th_short": 0.4
+    },
+    "GMKN": {
+      "th_long": 0.4,
+      "th_short": 0.4
+    },
+    "ROSN": {
+      "th_long": 0.4,
+      "th_short": 0.4
+    },
+    "YNDX": {
+      "th_long": 0.4,
+      "th_short": 0.4
+    }
+  },
+  "results": {
+    "SBER": {
+      "final_equity": 998512.7827260676,
+      "total_return": -0.0014872172739324174,
+      "max_drawdown": -0.017245400816365497,
+      "calmar": -0.08623848698959097,
+      "win_rate": 0.5,
+      "bars": 57910,
+      "trades_est": 1462
+    },
+    "GAZP": {
+      "final_equity": 999949.5659646199,
+      "total_return": -5.043403538018687e-05,
+      "max_drawdown": -0.0019658319298079263,
+      "calmar": -0.025655313974432485,
+      "win_rate": 0.5,
+      "bars": 57906,
+      "trades_est": 1556
+    },
+    "LKOH": {
+      "final_equity": 999943.2400510864,
+      "total_return": -5.6759948913631675e-05,
+      "max_drawdown": -0.0005295664497336761,
+      "calmar": -0.10718192012008462,
+      "win_rate": 0.5,
+      "bars": 57910,
+      "trades_est": 1400
+    },
+    "GMKN": {
+      "final_equity": 999060.1189477108,
+      "total_return": -0.0009398810522891488,
+      "max_drawdown": -0.010500568020040069,
+      "calmar": -0.08950763906251638,
+      "win_rate": 0.5,
+      "bars": 57573,
+      "trades_est": 1441
+    },
+    "ROSN": {
+      "final_equity": 999995.8032369704,
+      "total_return": -4.196763029540307e-06,
+      "max_drawdown": -9.536920061448129e-06,
+      "calmar": -0.44005433646290326,
+      "win_rate": 0.5,
+      "bars": 57908,
+      "trades_est": 1325
+    },
+    "YNDX": {
+      "final_equity": 999974.6319990641,
+      "total_return": -2.536800093588809e-05,
+      "max_drawdown": -0.0005613414645325721,
+      "calmar": -0.045191746091680536,
+      "win_rate": 0.5,
+      "bars": 46075,
+      "trades_est": 1127
+    }
+  }
+}
