@@ -1,0 +1,16 @@
+backtest:
+  symbols: ["SBER","GAZP","LKOH","GMKN","ROSN","YNDX"]
+  min_conf: 0.8
+  top_k_per_day: 2
+  cooldown_bars: 40
+  min_hold_bars: 20
+  time_start: "11:10"
+  time_end: "18:30"
+  fees_bps: 1.0
+  slippage_bps: 0.0
+  periods_per_year: 252
+  atr_period: 14
+  atr_stop_mult: 2.0
+  rr_take: 2.0
+  risk_per_trade: 0.005
+  out: "out/reports/app3_summary_risk.json"
