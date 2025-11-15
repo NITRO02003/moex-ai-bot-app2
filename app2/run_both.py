@@ -269,13 +269,28 @@ def _bt_thresholds_worker(args: Tuple[str, int, float, float]) -> Dict[str, Any]
 # ===================== top-K selection =====================
 
 def _score_row(row: pd.Series) -> float:
+    """Скоринг варианта параметров для свипа.
+
+    Базовая часть: рет / DD + Sharpe/Sortino + profit factor + profit_per_trade.
+    Дополнительно штрафуем за избыточное количество сделок и огромный оборот.
+    """
     ret = float(row.get("total_return", 0.0))
     dd = abs(float(row.get("max_drawdown", 0.0))) + 1e-12
     sr = float(row.get("sharpe_proxy", 0.0))
     pf = float(row.get("profit_factor", 0.0))
     ppt = float(row.get("profit_per_trade", 0.0))
     sortino = float(row.get("sortino_proxy", 0.0))
-    return (ret / dd) + 0.5*sr + 0.25*pf + 50.0*ppt + 0.5*sortino
+    trades = float(row.get("trade_count", 0.0))
+    turnover = float(row.get("turnover", 0.0))
+
+    base = (ret / dd) + 0.5 * sr + 0.25 * pf + 50.0 * ppt + 0.5 * sortino
+
+    # штраф за избыточное количество сделок и оборот (нормируем на equity0=1e6)
+    trade_penalty = 0.0005 * trades
+    turn_penalty = 0.005 * (turnover / 1_000_000.0)
+
+    return base - trade_penalty - turn_penalty
+
 
 def select_top_k(csv_path: str | Path, k: int = 5, group_by: List[str] | None = None,
                  out_best_json: str | Path | None = None) -> str:
@@ -305,13 +320,13 @@ def select_top_k(csv_path: str | Path, k: int = 5, group_by: List[str] | None = 
 class SweepConfig:
     symbols: List[str]
     horizon: int = 1
-    per_trade_risk_grid: List[float] = (0.001, 0.0015, 0.002, 0.003)
-    vol_q_grid: List[float] = (0.1, 0.2, 0.3, 0.4)
-    min_gap_grid: List[int] = (4, 8, 12)
-    tp_grid: List[float] = (1.0, 1.5, 2.0)
-    sl_grid: List[float] = (0.7, 1.0, 1.3)
-    trail_grid: List[float] = (0.0, 0.7, 1.0)
-    max_hold_grid: List[int] = (80, 120, 200)
+    per_trade_risk_grid: List[float] = (0.0005, 0.001, 0.0015, 0.002)
+    vol_q_grid: List[float] = (0.1, 0.2, 0.3)
+    min_gap_grid: List[int] = (8, 12, 16)
+    tp_grid: List[float] = (1.5, 2.0, 2.5)
+    sl_grid: List[float] = (0.7, 1.0, 1.2)
+    trail_grid: List[float] = (0.0, 1.0, 1.5)
+    max_hold_grid: List[int] = (80, 120, 160)
     n_jobs: int = max(1, (os.cpu_count() or 2) - 1)
     do_combined: bool = True
     thresh_window: float = 0.03

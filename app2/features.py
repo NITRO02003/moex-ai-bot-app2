@@ -9,6 +9,18 @@ except Exception:
     _user_build = None
     _USER_SET = None
 
+_ACTIVE_FEATURE_SET: list[str] | None = None
+
+def set_active_feature_set(cols: list[str] | None) -> None:
+    """Глобально задаёт активный набор фич для build()/final_columns.
+
+    Если cols=None, используется стандартный FINAL_FEATURE_SET / все фичи.
+    """
+    global _ACTIVE_FEATURE_SET
+    _ACTIVE_FEATURE_SET = list(cols) if cols is not None else None
+
+
+
 
 def _rsi(s: pd.Series, n: int) -> pd.Series:
     d = s.diff()
@@ -175,7 +187,12 @@ def build(px: pd.DataFrame) -> pd.DataFrame:
 
 
 def final_columns(cols):
+    cols = list(cols)
+    # если явно задан активный набор фич – используем только его
+    global _ACTIVE_FEATURE_SET, _USER_SET
+    if _ACTIVE_FEATURE_SET is not None:
+        return [c for c in cols if c in _ACTIVE_FEATURE_SET]
     if _USER_SET is not None and len(_USER_SET) > 0:
         rest = [c for c in cols if c not in _USER_SET]
         return list(_USER_SET) + rest
-    return list(cols)
+    return cols

@@ -1,56 +1,71 @@
 {
-  "SBER": {
-    "final_equity": 998512.7827260676,
-    "total_return": -0.0014872172739324174,
-    "max_drawdown": -0.017245400816365497,
-    "calmar": -0.08623848698959097,
-    "win_rate": 0.5,
-    "bars": 57910,
-    "trades_est": 1462
-  },
-  "GAZP": {
-    "final_equity": 999949.5659646199,
-    "total_return": -5.043403538018687e-05,
-    "max_drawdown": -0.0019658319298079263,
-    "calmar": -0.025655313974432485,
-    "win_rate": 0.5,
-    "bars": 57906,
-    "trades_est": 1556
-  },
-  "LKOH": {
-    "final_equity": 999943.2400510864,
-    "total_return": -5.6759948913631675e-05,
-    "max_drawdown": -0.0005295664497336761,
-    "calmar": -0.10718192012008462,
-    "win_rate": 0.5,
-    "bars": 57910,
-    "trades_est": 1400
-  },
-  "GMKN": {
-    "final_equity": 999060.1189477108,
-    "total_return": -0.0009398810522891488,
-    "max_drawdown": -0.010500568020040069,
-    "calmar": -0.08950763906251638,
-    "win_rate": 0.5,
-    "bars": 57573,
-    "trades_est": 1441
-  },
-  "ROSN": {
-    "final_equity": 999995.8032369704,
-    "total_return": -4.196763029540307e-06,
-    "max_drawdown": -9.536920061448129e-06,
-    "calmar": -0.44005433646290326,
-    "win_rate": 0.5,
-    "bars": 57908,
-    "trades_est": 1325
-  },
-  "YNDX": {
-    "final_equity": 999974.6319990641,
-    "total_return": -2.536800093588809e-05,
-    "max_drawdown": -0.0005613414645325721,
-    "calmar": -0.045191746091680536,
-    "win_rate": 0.5,
-    "bars": 46075,
-    "trades_est": 1127
+  "timestamp": "2025-11-14T15:39:15+03:00",
+  "results": {
+    "YNDX": {
+      "final_equity": 924257.4821955344,
+      "total_return": -0.07574251780446561,
+      "max_drawdown": -0.16793010568834632,
+      "calmar": -0.45103596817257197,
+      "bars": 46075,
+      "profit_factor": 0.9977904767503211,
+      "win_rate": 0.5762910798122066,
+      "avg_trade": -88.89966878458475,
+      "trades_est": 359
+    },
+    "GAZP": {
+      "final_equity": 990707.0675695282,
+      "total_return": -0.0092929324304718,
+      "max_drawdown": -0.10827902780177068,
+      "calmar": -0.08582393672285848,
+      "bars": 57906,
+      "profit_factor": 0.9972539725829013,
+      "win_rate": 0.5526315789473685,
+      "avg_trade": -122.27542671673291,
+      "trades_est": 34
+    },
+    "ROSN": {
+      "final_equity": 1000000.0,
+      "total_return": 0.0,
+      "max_drawdown": 0.0,
+      "calmar": 0.0,
+      "bars": 57908,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "avg_trade": 0.0,
+      "trades_est": 0
+    },
+    "GMKN": {
+      "final_equity": 942006.4998302145,
+      "total_return": -0.05799350016978544,
+      "max_drawdown": -0.1533147460053248,
+      "calmar": -0.3782643332153533,
+      "bars": 57573,
+      "profit_factor": 0.9976604094389601,
+      "win_rate": 0.5586206896551724,
+      "avg_trade": -99.9887933961815,
+      "trades_est": 255
+    },
+    "SBER": {
+      "final_equity": 886997.8792074121,
+      "total_return": -0.11300212079258787,
+      "max_drawdown": -0.2027732781299838,
+      "calmar": -0.5572830988122118,
+      "bars": 57910,
+      "profit_factor": 0.998108771778117,
+      "win_rate": 0.551747311827957,
+      "avg_trade": -75.9422854788888,
+      "trades_est": 633
+    },
+    "LKOH": {
+      "final_equity": 877640.5874990069,
+      "total_return": -0.12235941250099314,
+      "max_drawdown": -0.21015829845393463,
+      "calmar": -0.5822249865989163,
+      "bars": 57910,
+      "profit_factor": 0.997939228178694,
+      "win_rate": 0.5665760869565217,
+      "avg_trade": -83.12460088382676,
+      "trades_est": 630
+    }
   }
 }

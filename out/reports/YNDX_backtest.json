@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-11-14T15:27:22+03:00",
+  "metrics": {
+    "final_equity": 903733.8907165022,
+    "total_return": -0.09626610928349777,
+    "max_drawdown": -1.0,
+    "calmar": -0.09626610928349777,
+    "bars": 46075,
+    "trade_count": 4036,
+    "turnover": 220657495.8349134,
+    "commission_paid": 132394.49750094814
+  }
+}
