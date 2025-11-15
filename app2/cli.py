@@ -189,6 +189,44 @@ def cmd_backtest(a):
         json.dump(payload, f, ensure_ascii=False, indent=2)
     print(str(path))
 
+
+def cmd_rule_backtest(a):
+    from .rule_strategies import (
+        TrendParams,
+        MeanRevParams,
+        BreakoutParams,
+        generate_trend_signals,
+        generate_meanrev_signals,
+        generate_breakout_signals,
+    )
+    from .rule_backtest import RuleBtParams, run_rule_symbol
+    from . import data as D
+
+    _ensure_dirs()
+    rp = RuleBtParams()
+    out = {}
+    for sym in a.symbols:
+        px = D.load_csv(sym)
+        if px is None or getattr(px, "empty", False):
+            continue
+
+        if a.strategy == "trend":
+            side = generate_trend_signals(px, TrendParams())
+        elif a.strategy == "meanrev":
+            side = generate_meanrev_signals(px, MeanRevParams())
+        else:
+            side = generate_breakout_signals(px, BreakoutParams())
+
+        res = run_rule_symbol(px, side, rp, equity0=float(a.equity0))
+        out[sym] = res.get("metrics", {})
+
+    payload = {"timestamp": _now_iso(), "strategy": a.strategy, "results": out}
+    path = REPORTS_DIR / f"rule_{a.strategy}_backtest.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    print(json.dumps(payload, ensure_ascii=False))
+
+
 def cmd_regime_backtest(a):
     _ensure_dirs()
     from . import regime_backtest as RB
@@ -305,6 +343,12 @@ def main():
     p_s.add_argument("--top-k", dest="top_k", type=int, default=5)
     p_s.add_argument("--out-best", dest="out_best", default=str(REPORTS_DIR / "sweep_top.json"))
     p_s.set_defaults(func=cmd_sweep)
+
+    p_rb = sub.add_parser("rule-backtest")
+    p_rb.add_argument("--strategy", choices=["trend", "meanrev", "breakout"], required=True)
+    p_rb.add_argument("--symbols", nargs="+", required=True)
+    p_rb.add_argument("--equity0", type=float, default=1_000_000.0)
+    p_rb.set_defaults(func=cmd_rule_backtest)
 
     args = ap.parse_args()
     if hasattr(args, "func"):

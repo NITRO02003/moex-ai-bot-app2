@@ -1,0 +1,32 @@
+{
+  "timestamp": "2025-11-15T17:30:32+03:00",
+  "strategy": "breakout",
+  "results": {
+    "SBER": {
+      "final_equity": 203.7295530673582,
+      "total_return": -0.9997962704469326,
+      "max_drawdown": -0.9998074219970678,
+      "calmar": -0.9999888463019079,
+      "bars": 57910,
+      "profit_factor": 0.6340942974890462,
+      "win_rate": 0.2614746816701214,
+      "avg_trade": -148.03024436584755,
+      "trade_count": 2779,
+      "turnover": 1393237230.398326,
+      "commission_paid": 696618.6151991647
+    },
+    "GAZP": {
+      "final_equity": 661.5009539297316,
+      "total_return": -0.9993384990460703,
+      "max_drawdown": -0.9993390685540161,
+      "calmar": -0.9999994301153995,
+      "bars": 57906,
+      "profit_factor": 0.6799201989753394,
+      "win_rate": 0.24541032480778283,
+      "avg_trade": -156.80817496407815,
+      "trade_count": 2684,
+      "turnover": 1967121491.0048823,
+      "commission_paid": 983560.7455024432
+    }
+  }
+}

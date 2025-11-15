@@ -67,81 +67,114 @@ def run_symbol(prices: pd.DataFrame, model_bundle, rp_global: R.RiskParams | Non
     X = F.build(prices); X = X[F.final_columns(X.columns)]
     close = prices['close'].astype(float)
     prob_up = M.predict_proba(model_bundle, X, close).reindex(prices.index).ffill().bfill()
-    floor = R.conf_gate(prob_up, close, rp_global)
-    prob_up = prob_up.where(prob_up >= floor, 0.0)
 
+    # confidence-gate
+    if rp_global is None:
+        rp_global = R.RiskParams()
+    floor = R.conf_gate(prob_up, close, rp_global)
+    conf_mask = prob_up >= floor
+
+    # momentum + тренд/объём фильтры
     long_mom, short_mom = _entry_filter(prices, p)
-    TL = float(th_long) if th_long is not None else float(p.th_long)
-    TS = float(th_short) if th_short is not None else float(p.th_short)
+
+    # ассиметричные пороги
+    TL_raw = float(th_long) if th_long is not None else float(p.th_long)
+    TS_raw = float(th_short) if th_short is not None else float(p.th_short)
+
+    TL = max(TL_raw, 0.55)
+    TS = min(TS_raw, 0.40)
+    if TL <= TS + 0.05:
+        TL = TS + 0.05
 
     atr = _atr(prices, p.atr_len).reindex(prices.index).ffill()
     equity = equity0
     pos = 0          # +1 long, -1 short, 0 flat
-    entry_px = 0.0; peak = 0.0; trough = 0.0
-    shares = 0.0; bars_in_pos = 0; cool = 0
+    shares = 0.0
+    entry_px = 0.0
+    peak = 0.0; trough = 0.0
+    bars_in_pos = 0
+    last_trade_i = -1
 
     pnl = pd.Series(0.0, index=prices.index)
-    position_series = pd.Series(0, index=prices.index, dtype='int8')
-    last_trade_i = -10_000
+    position_series = pd.Series(0, index=prices.index, dtype="int8")
 
     for i, ts in enumerate(prices.index):
-        px = float(close.iloc[i])
-        this_atr = float(atr.iloc[i]) if not np.isnan(atr.iloc[i]) else 0.0
+        px = float(close.loc[ts])
+        this_atr = float(atr.loc[ts]) if not np.isnan(atr.loc[ts]) else 0.0
 
-        if cool > 0:
-            cool -= 1
-
-        # === EXIT ===
+        # 1) управление позицией (TP/SL/Trail/MaxHold)
+        exit_now = False
         if pos != 0:
             bars_in_pos += 1
             if pos > 0:
                 peak = max(peak, px)
                 hit_sl = px <= entry_px - p.sl_mult * this_atr
                 hit_tp = px >= entry_px + p.tp_mult * this_atr
-                trail_ok = p.trail_mult > 0 and this_atr > 0 and px <= (peak - p.trail_mult * this_atr)
-                time_exit = (p.max_hold > 0 and bars_in_pos >= p.max_hold)
-                if hit_sl or hit_tp or trail_ok or time_exit:
-                    d_sh = -shares                # sell to close long
-                    cash_flow = -d_sh * px        # self-financing: sell => cash_flow > 0
-                    cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
-                    pnl.iloc[i] += cash_flow - cost; equity += cash_flow - cost
-                    pos = 0; shares = 0.0; entry_px = 0.0; peak = 0.0; trough = 0.0
-                    cool = p.cooldown; bars_in_pos = 0; last_trade_i = i
+                trail_ok = p.trail_mult > 0 and px <= peak - p.trail_mult * this_atr
             else:
                 trough = min(trough, px)
                 hit_sl = px >= entry_px + p.sl_mult * this_atr
                 hit_tp = px <= entry_px - p.tp_mult * this_atr
-                trail_ok = p.trail_mult > 0 and this_atr > 0 and px >= (trough + p.trail_mult * this_atr)
-                time_exit = (p.max_hold > 0 and bars_in_pos >= p.max_hold)
-                if hit_sl or hit_tp or trail_ok or time_exit:
-                    d_sh = -shares                # buy to cover short (shares<0 => d_sh>0)
-                    cash_flow = -d_sh * px        # buy => cash_flow < 0
-                    cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
-                    pnl.iloc[i] += cash_flow - cost; equity += cash_flow - cost
-                    pos = 0; shares = 0.0; entry_px = 0.0; peak = 0.0; trough = 0.0
-                    cool = p.cooldown; bars_in_pos = 0; last_trade_i = i
+                trail_ok = p.trail_mult > 0 and px >= trough + p.trail_mult * this_atr
 
-        # === ENTRY ===
-        if pos == 0 and cool == 0 and (i - last_trade_i) >= p.min_gap:
-            pr = float(prob_up.iloc[i])
-            enter_long = (pr >= TL) and bool(long_mom.iloc[i])
-            enter_short = (pr <= TS) and bool(short_mom.iloc[i])
-            if enter_long or enter_short:
-                rp_tmp = rp_global or R.RiskParams(per_trade_risk=p.per_trade_risk)
-                base_size = R.position_size(close.iloc[:i+1], pd.Series(prob_up.iloc[:i+1]), equity, rp_tmp).iloc[-1]
-                if base_size <= 0 or np.isnan(base_size):
-                    base_size = equity * p.per_trade_risk / max(px, 1e-9)
-                sh = base_size / max(px, 1e-9)
-                if enter_short:
-                    sh = -abs(sh); pos = -1
-                else:
-                    sh = abs(sh); pos = 1
-                entry_px = px; peak = px; trough = px
-                d_sh = sh                         # from 0 to sh
-                cash_flow = -d_sh * px            # buy (d_sh>0) -> cash -, short (d_sh<0) -> cash +
-                cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
-                pnl.iloc[i] += cash_flow - cost; equity += cash_flow - cost
-                shares = sh; bars_in_pos = 0; last_trade_i = i
+            time_exit = p.max_hold > 0 and bars_in_pos >= p.max_hold
+            exit_now = hit_sl or hit_tp or trail_ok or time_exit
+
+        if exit_now and pos != 0:
+            d_sh = -shares
+            cash_flow = -d_sh * px
+            cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
+            pnl.iloc[i] += cash_flow - cost
+            equity += cash_flow - cost
+            shares = 0.0; pos = 0; bars_in_pos = 0
+
+        # 2) проверка входа (confidence + momentum + тренд/объём)
+        enter_long = enter_short = False
+        if conf_mask.loc[ts]:
+            pr = float(prob_up.loc[ts])
+            if pr >= TL and bool(long_mom.loc[ts]):
+                enter_long = True
+            if pr <= TS and bool(short_mom.loc[ts]):
+                enter_short = True
+
+        # 3) открытие новой позиции (с ограничением плеча и риском на сделку)
+        if pos == 0 and (enter_long or enter_short):
+            # риск на сделку в деньгах
+            dollar_risk = max(float(rp_global.per_trade_risk) * float(equity), 1.0)
+            # расстояние до стопа ~ sl_mult * ATR, но не меньше 1% цены
+            stop_dist = max(p.sl_mult * this_atr, 0.01 * px)
+            if stop_dist <= 0:
+                stop_dist = 0.01 * px
+            sh = dollar_risk / stop_dist
+
+            # ограничиваем плечо через max_gross
+            max_gross = float(getattr(rp_global, "max_gross", 1.0))
+            max_notional = max_gross * float(equity)
+            notional = min(sh * px, max_notional)
+            sh = notional / px if px > 0 else 0.0
+
+            if sh <= 0:
+                position_series.iloc[i] = pos
+                continue
+
+            if enter_short:
+                pos = -1
+                sh = -sh
+            else:
+                pos = 1
+                sh = abs(sh)
+
+            entry_px = px
+            peak = px
+            trough = px
+            d_sh = sh
+            cash_flow = -d_sh * px
+            cost = _turnover_cost(px, d_sh, p.commission, p.slippage_bps)
+            pnl.iloc[i] += cash_flow - cost
+            equity += cash_flow - cost
+            shares = sh
+            bars_in_pos = 0
+            last_trade_i = i
 
         position_series.iloc[i] = pos
 
@@ -149,3 +182,4 @@ def run_symbol(prices: pd.DataFrame, model_bundle, rp_global: R.RiskParams | Non
     stats = MX.summarize(equity_curve, pnl)
     stats['trades_est'] = int((position_series.diff().abs() > 0).sum() // 2)
     return {'equity': equity_curve, 'pnl': pnl, 'position': position_series, 'metrics': stats}
+
