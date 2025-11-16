@@ -1,0 +1,32 @@
+{
+  "GAZP": {
+    "trend": 0.23,
+    "range": 94.57,
+    "high_vol": 5.2
+  },
+  "ROSN": {
+    "trend": 0.05,
+    "range": 95.23,
+    "high_vol": 4.72
+  },
+  "SBER": {
+    "trend": 0.07,
+    "range": 94.88,
+    "high_vol": 5.05
+  },
+  "LKOH": {
+    "trend": 0.18,
+    "range": 94.53,
+    "high_vol": 5.28
+  },
+  "GMKN": {
+    "trend": 0.14,
+    "range": 94.83,
+    "high_vol": 5.03
+  },
+  "YNDX": {
+    "trend": 0.0,
+    "range": 94.65,
+    "high_vol": 5.35
+  }
+}
