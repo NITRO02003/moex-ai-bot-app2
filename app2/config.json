@@ -1,0 +1,64 @@
+{
+  "defaults": {
+    "RegimeParams": {
+      "high_vol_quantile": 0.98,
+      "trend_threshold": 2.5,
+      "atr_len": 14,
+      "ema_fast": 12,
+      "ema_slow": 48
+    },
+    "TrendParams": {
+      "ema_fast": 12,
+      "ema_slow": 48,
+      "atr_len": 14,
+      "trend_thr": 2.5,
+      "min_gap_bars": 25
+    },
+    "RuleBtParams": {
+      "commission": 0.0005,
+      "slippage_bps": 1.0,
+      "risk_per_trade": 0.0015,
+      "atr_len": 14,
+      "sl_atr_mult": 1.5,
+      "tp_mult": 3.0
+    }
+  },
+  "sweep": {
+    "RegimeParams": {
+      "high_vol_quantile": [
+        0.95,
+        0.97,
+        0.98
+      ],
+      "trend_threshold": [
+        2.0,
+        2.5,
+        3.0
+      ]
+    },
+    "TrendParams": {
+      "trend_thr": [
+        2.0,
+        2.5,
+        3.0
+      ],
+      "min_gap_bars": [
+        20,
+        25,
+        30
+      ]
+    },
+    "RuleBtParams": {
+      "risk_per_trade": [
+        0.001,
+        0.0015,
+        0.002
+      ],
+      "sl_atr_mult": [
+        1.5,
+        2.0,
+        2.5
+      ]
+    }
+  }
+}
