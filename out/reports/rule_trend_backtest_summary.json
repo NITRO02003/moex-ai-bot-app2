@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-11-15T19:34:13.455242+00:00",
+  "strategy": "trend",
+  "results": {
+    "SBER": {
+      "final_equity": 1001876.1829629043,
+      "total_return": 0.0018761829629043714,
+      "max_drawdown": -0.0011453648932777671,
+      "calmar": 1.638065715053631,
+      "bars": 57910,
+      "profit_factor": 1.0463380536539226,
+      "win_rate": 0.4892505157002063,
+      "avg_trade": 0.08600426142123735,
+      "trade_count": 1528,
+      "turnover": 5555394.38250754,
+      "commission_paid": 2777.6971912537733
+    },
+    "GAZP": {
+      "final_equity": 998399.2679848697,
+      "total_return": -0.001600732015130335,
+      "max_drawdown": -0.003882031411028386,
+      "calmar": -0.41234391112417257,
+      "bars": 57906,
+      "profit_factor": 0.9640723881914315,
+      "win_rate": 0.4791275678417449,
+      "avg_trade": -0.08119360969466874,
+      "trade_count": 1541,
+      "turnover": 6908736.520823918,
+      "commission_paid": 3454.3682604119513
+    },
+    "LKOH": {
+      "final_equity": 999965.396473887,
+      "total_return": -3.460352611295292e-05,
+      "max_drawdown": -7.398527595314786e-05,
+      "calmar": -0.4677082793455559,
+      "bars": 57910,
+      "profit_factor": 0.976099440067531,
+      "win_rate": 0.48600115852481174,
+      "avg_trade": -0.0016703768156463238,
+      "trade_count": 1569,
+      "turnover": 214565.00798784138,
+      "commission_paid": 107.2825039939206
+    }
+  }
+}

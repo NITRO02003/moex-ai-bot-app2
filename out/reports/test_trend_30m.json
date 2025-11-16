@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-11-16T00:29:08.113504+00:00",
+  "strategy": "trend",
+  "results": {
+    "YNDX": {
+      "final_equity": 1000100.1029349652,
+      "total_return": 0.00010010293496520717,
+      "max_drawdown": -1.5517510168150395e-05,
+      "calmar": 6.450966287791962,
+      "bars": 16111,
+      "profit_factor": 1.1915707942111111,
+      "win_rate": 0.5044728434504793,
+      "avg_trade": 0.03198176835946747,
+      "trade_count": 224,
+      "turnover": 25376.665552418468,
+      "commission_paid": 12.688332776209231
+    }
+  }
+}

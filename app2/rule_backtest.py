@@ -1,7 +1,23 @@
+"""Simple backtest engine for rule‑based strategies.
+
+This module connects raw direction signals (long/short/flat) to a
+position sizing and trade execution logic.  It uses a very basic ATR
+based sizing rule: risk a fixed fraction of equity on each trade
+relative to the distance to the stop, where the stop is set at a
+multiple of ATR.  The backtester handles commissions and slippage
+linearly and computes per‑bar PnL and summary metrics.
+
+Note that this backtester does not simulate intrabar dynamics; it
+assumes that entries and exits occur at the bar close with the
+specified slippage and commission.  As such, it is intended for
+comparative research rather than exact simulation.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Tuple, List, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -10,131 +26,121 @@ from . import metrics as MX
 
 @dataclass
 class RuleBtParams:
+    """Parameters for the rule‑based backtest."""
+
     commission: float = 0.0005
     slippage_bps: float = 1.0
-    risk_per_trade: float = 0.005
+    # Fraction of equity risked per trade.  Reduced from 0.5% to 0.2%
+    # to limit position sizes and drawdowns when used by default.  A
+    # smaller per‑trade risk helps mitigate losses from false
+    # signals and high volatility.
+    risk_per_trade: float = 0.002
     atr_len: int = 14
     sl_atr_mult: float = 1.5
-    tp_mult: float = 3.0
+    tp_mult: float = 3.0  # take profit multiple of ATR (not used here but reserved)
 
 
-def _atr(px: pd.DataFrame, n: int) -> pd.Series:
+def _compute_atr(px: pd.DataFrame, n: int) -> pd.Series:
+    """Compute the Average True Range (ATR) as a ratio to price."""
     c = px["close"].astype(float)
     h = px["high"].astype(float)
     l = px["low"].astype(float)
-    prev_c = c.shift(1)
-    tr = pd.concat(
-        [
-            (h - l),
-            (h - prev_c).abs(),
-            (l - prev_c).abs(),
-        ],
-        axis=1,
-    ).max(axis=1)
-    atr = tr.ewm(span=n, adjust=False).mean()
-    return atr.replace([np.inf, -np.inf], np.nan).fillna(0.0)
-
-
-def run_rule_symbol(
-    prices: pd.DataFrame,
-    side: pd.Series,
-    rp: RuleBtParams,
-    equity0: float = 1_000_000.0,
-) -> Dict[str, Any]:
-    if prices is None or prices.empty:
-        return {
-            "pnl": pd.Series(dtype="float64"),
-            "equity": pd.Series([equity0], index=pd.DatetimeIndex([])),
-            "metrics": {},
-        }
-
-    px = prices.copy()
-    if "close" not in px.columns or "high" not in px.columns or "low" not in px.columns:
-        raise ValueError("prices must have close/high/low columns")
-
-    c = px["close"].astype(float)
-    atr = _atr(px, rp.atr_len)
-
-    side = side.reindex(c.index).fillna(0).astype(int)
-
-    idx = c.index
-    n = len(idx)
-
-    equity = float(equity0)
-    position = 0.0
-    entry_price = 0.0
-    commission_paid = 0.0
-    trades = 0
-    turnover = 0.0
-
-    pnl_per_bar = np.zeros(n, dtype="float64")
     prev_c = c.shift(1).bfill()
+    tr = pd.concat([(h - l), (h - prev_c).abs(), (l - prev_c).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(span=n, adjust=False).mean()
+    return atr
 
-    for i, ts in enumerate(idx):
-        price = float(c.iat[i])
-        s = int(side.iat[i])
 
-        if position != 0.0 and i > 0:
-            pnl_bar = position * (price - float(prev_c.iat[i]))
-            pnl_per_bar[i] += pnl_bar
-            equity += pnl_bar
+def run_rule_symbol(px: pd.DataFrame,
+                    side: pd.Series,
+                    rp: RuleBtParams,
+                    equity0: float = 1_000_000.0) -> Dict[str, object]:
+    """Run a simple long/short backtest for a single symbol.
 
-        if i > 0:
-            prev_side = int(side.iat[i - 1])
-        else:
-            prev_side = 0
+    Parameters
+    ----------
+    px : pandas.DataFrame
+        OHLC dataframe with index aligned to ``side``.
+    side : pandas.Series
+        Series of trade directions (``+1`` for long, ``-1`` for short, ``0`` for flat).
+    rp : RuleBtParams
+        Backtest parameter dataclass controlling commission, slippage and risk size.
+    equity0 : float, optional
+        Initial capital.  Default is 1,000,000.
 
-        close_position = False
-        open_new = False
-
-        if position != 0.0 and s == 0:
-            close_position = True
-        elif position != 0.0 and np.sign(position) != s and s != 0:
-            close_position = True
-            open_new = True
-        elif position == 0.0 and s != 0:
-            open_new = True
-
-        if close_position and position != 0.0:
-            exit_price = price * (1.0 - np.sign(position) * rp.slippage_bps / 10000.0)
-            trade_pnl = position * (exit_price - entry_price)
-            trade_comm = rp.commission * abs(position) * exit_price
-            commission_paid += trade_comm
-            trade_pnl -= trade_comm
-            pnl_per_bar[i] += trade_pnl
-            equity += trade_pnl
-            turnover += abs(position) * exit_price
-            trades += 1
-            position = 0.0
-            entry_price = 0.0
-
-        if open_new and s != 0:
-            risk_dollars = max(equity * rp.risk_per_trade, 1.0)
-            atr_i = float(atr.iat[i]) if float(atr.iat[i]) > 0 else 1.0
-            dollar_risk_per_unit = atr_i * rp.sl_atr_mult
-            size_units = risk_dollars / dollar_risk_per_unit
-            size_units = float(size_units)
-            if size_units <= 0 or not np.isfinite(size_units):
-                continue
-            side_sign = 1.0 if s > 0 else -1.0
-            entry_price = price * (1.0 + side_sign * rp.slippage_bps / 10000.0)
-            position = side_sign * size_units
-            entry_notional = abs(position) * entry_price
-            trade_comm = rp.commission * entry_notional
-            commission_paid += trade_comm
-            pnl_per_bar[i] -= trade_comm
-            equity -= trade_comm
-            turnover += entry_notional
-
-    pnl = pd.Series(pnl_per_bar, index=idx, name="pnl")
-    eq = pnl.cumsum() + float(equity0)
-
-    mx = MX.summary_from_pnl(pnl, equity0=equity0)
-    mx.update(
-        dict(
-            trade_count=int(trades),
-            turnover=float(turnover),
-            commission_paid=float(commission_paid),
-        )
-    )
-    return dict(side=side, pnl=pnl, equity=eq, metrics=mx)
+    Returns
+    -------
+    dict
+        A dictionary containing the equity curve, PnL series and summary metrics.
+    """
+    # Ensure alignment
+    side = side.reindex(px.index).fillna(0).astype(int)
+    atr = _compute_atr(px, rp.atr_len)
+    # Convert slippage bps to fraction
+    slip_frac = rp.slippage_bps / 10_000.0
+    # Containers
+    equity = np.full(len(px), equity0, dtype=float)
+    pnl = np.zeros(len(px), dtype=float)
+    turnover = 0.0
+    commission_paid = 0.0
+    in_pos = False
+    pos_dir = 0
+    pos_size = 0.0
+    entry_price = 0.0
+    # Iterate bars
+    for i in range(len(px)):
+        # Mark to market PnL on open position
+        if in_pos:
+            price = px["close"].iat[i]
+            price_diff = price - px["close"].iat[i - 1]
+            pnl[i] += pos_dir * pos_size * price_diff
+        # Determine if position should change
+        target_dir = side.iat[i]
+        if target_dir != pos_dir:
+            # Exit existing position if any
+            if in_pos:
+                exit_price = px["close"].iat[i] * (1 - slip_frac * pos_dir)
+                pnl[i] += pos_dir * pos_size * (exit_price - px["close"].iat[i])
+                commission = rp.commission * abs(pos_size * exit_price)
+                pnl[i] -= commission
+                commission_paid += commission
+                turnover += abs(pos_size * exit_price)
+                in_pos = False
+                pos_dir = 0
+                pos_size = 0.0
+            # Enter new position
+            if target_dir != 0:
+                # Risk per trade in dollars
+                eq = equity[i - 1] if i > 0 else equity0
+                risk_dollars = rp.risk_per_trade * eq
+                # Use ATR to determine stop distance
+                this_atr = atr.iat[i]
+                stop_dist = max(this_atr * rp.sl_atr_mult * px["close"].iat[i], 1e-9)
+                size = risk_dollars / stop_dist
+                # Limit size to not exceed equity (no leverage)
+                max_notional = eq  # 1x gross
+                notional = min(size * px["close"].iat[i], max_notional)
+                size = notional / px["close"].iat[i]
+                entry_price = px["close"].iat[i] * (1 + slip_frac * target_dir)
+                pos_size = size
+                pos_dir = target_dir
+                in_pos = True
+                commission = rp.commission * abs(pos_size * entry_price)
+                pnl[i] -= commission
+                commission_paid += commission
+                turnover += abs(pos_size * entry_price)
+                # Immediately mark entry slippage in PnL
+                pnl[i] += pos_dir * pos_size * (px["close"].iat[i] - entry_price)
+        # Update equity
+        equity[i] = equity0 + pnl[: i + 1].sum()
+    equity_series = pd.Series(equity, index=px.index)
+    pnl_series = pd.Series(pnl, index=px.index)
+    stats = MX.summary_from_pnl(pnl_series, equity0)
+    stats["trade_count"] = int((abs(np.diff(side.values)) > 0).sum())
+    stats["turnover"] = turnover
+    stats["commission_paid"] = commission_paid
+    return {
+        "equity_curve": equity_series,
+        "pnl": pnl_series,
+        "metrics": stats,
+    }
