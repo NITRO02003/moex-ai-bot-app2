@@ -1,0 +1,47 @@
+{
+  "timestamp": "2025-11-16T08:55:49.897156+00:00",
+  "processed": {
+    "GAZP": [
+      "processed\\GAZP_10min.csv",
+      "processed\\GAZP_30min.csv",
+      "processed\\GAZP_1h.csv"
+    ],
+    "ROSN": [
+      "processed\\ROSN_10min.csv",
+      "processed\\ROSN_30min.csv",
+      "processed\\ROSN_1h.csv"
+    ],
+    "SBER": [
+      "processed\\SBER_10min.csv",
+      "processed\\SBER_30min.csv",
+      "processed\\SBER_1h.csv"
+    ],
+    "LKOH": [
+      "processed\\LKOH_10min.csv",
+      "processed\\LKOH_30min.csv",
+      "processed\\LKOH_1h.csv"
+    ],
+    "GMKN": [
+      "processed\\GMKN_10min.csv",
+      "processed\\GMKN_30min.csv",
+      "processed\\GMKN_1h.csv"
+    ],
+    "YNDX": [
+      "processed\\YNDX_10min.csv",
+      "processed\\YNDX_30min.csv",
+      "processed\\YNDX_1h.csv"
+    ],
+    "NVTK": [],
+    "NLMK": [],
+    "MTSS": [],
+    "TATN": [],
+    "CHMF": [],
+    "SNGS": [],
+    "PIKK": [],
+    "PLZL": [],
+    "PRTK": [],
+    "MGNT": [],
+    "VKCO": [],
+    "OZON": []
+  }
+}
