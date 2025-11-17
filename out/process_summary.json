@@ -1,47 +1,240 @@
 {
-  "timestamp": "2025-11-16T08:55:49.897156+00:00",
-  "processed": {
-    "GAZP": [
-      "processed\\GAZP_10min.csv",
-      "processed\\GAZP_30min.csv",
-      "processed\\GAZP_1h.csv"
-    ],
-    "ROSN": [
-      "processed\\ROSN_10min.csv",
-      "processed\\ROSN_30min.csv",
-      "processed\\ROSN_1h.csv"
-    ],
-    "SBER": [
-      "processed\\SBER_10min.csv",
-      "processed\\SBER_30min.csv",
-      "processed\\SBER_1h.csv"
-    ],
-    "LKOH": [
-      "processed\\LKOH_10min.csv",
-      "processed\\LKOH_30min.csv",
-      "processed\\LKOH_1h.csv"
-    ],
-    "GMKN": [
-      "processed\\GMKN_10min.csv",
-      "processed\\GMKN_30min.csv",
-      "processed\\GMKN_1h.csv"
-    ],
-    "YNDX": [
-      "processed\\YNDX_10min.csv",
-      "processed\\YNDX_30min.csv",
-      "processed\\YNDX_1h.csv"
-    ],
-    "NVTK": [],
-    "NLMK": [],
-    "MTSS": [],
-    "TATN": [],
-    "CHMF": [],
-    "SNGS": [],
-    "PIKK": [],
-    "PLZL": [],
-    "PRTK": [],
-    "MGNT": [],
-    "VKCO": [],
-    "OZON": []
+  "GAZP": {
+    "10min": {
+      "rows_in": 82762,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82762,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82762,
+      "rows_out": 33546
+    }
+  },
+  "ROSN": {
+    "10min": {
+      "rows_in": 82746,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82746,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82746,
+      "rows_out": 33546
+    }
+  },
+  "SBER": {
+    "10min": {
+      "rows_in": 82748,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82748,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82748,
+      "rows_out": 33546
+    }
+  },
+  "LKOH": {
+    "10min": {
+      "rows_in": 82764,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82764,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82764,
+      "rows_out": 33546
+    }
+  },
+  "GMKN": {
+    "10min": {
+      "rows_in": 82429,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82429,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82429,
+      "rows_out": 33546
+    }
+  },
+  "YNDX": {
+    "10min": {
+      "rows_in": 46984,
+      "rows_out": 128694
+    },
+    "30min": {
+      "rows_in": 46984,
+      "rows_out": 42899
+    },
+    "1h": {
+      "rows_in": 46984,
+      "rows_out": 21450
+    }
+  },
+  "NVTK": {
+    "10min": {
+      "rows_in": 82525,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82525,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82525,
+      "rows_out": 33546
+    }
+  },
+  "NLMK": {
+    "10min": {
+      "rows_in": 82769,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82769,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82769,
+      "rows_out": 33546
+    }
+  },
+  "MTSS": {
+    "10min": {
+      "rows_in": 82658,
+      "rows_out": 201269
+    },
+    "30min": {
+      "rows_in": 82658,
+      "rows_out": 67090
+    },
+    "1h": {
+      "rows_in": 82658,
+      "rows_out": 33545
+    }
+  },
+  "TATN": {
+    "10min": {
+      "rows_in": 82639,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82639,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82639,
+      "rows_out": 33546
+    }
+  },
+  "CHMF": {
+    "10min": {
+      "rows_in": 82767,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82767,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82767,
+      "rows_out": 33546
+    }
+  },
+  "SNGS": {
+    "10min": {
+      "rows_in": 82696,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82696,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82696,
+      "rows_out": 33546
+    }
+  },
+  "PIKK": {
+    "10min": {
+      "rows_in": 82742,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82742,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82742,
+      "rows_out": 33546
+    }
+  },
+  "PLZL": {
+    "10min": {
+      "rows_in": 82327,
+      "rows_out": 201269
+    },
+    "30min": {
+      "rows_in": 82327,
+      "rows_out": 67090
+    },
+    "1h": {
+      "rows_in": 82327,
+      "rows_out": 33545
+    }
+  },
+  "MGNT": {
+    "10min": {
+      "rows_in": 82761,
+      "rows_out": 201270
+    },
+    "30min": {
+      "rows_in": 82761,
+      "rows_out": 67091
+    },
+    "1h": {
+      "rows_in": 82761,
+      "rows_out": 33546
+    }
+  },
+  "VKCO": {
+    "10min": {
+      "rows_in": 80775,
+      "rows_out": 201269
+    },
+    "30min": {
+      "rows_in": 80775,
+      "rows_out": 67090
+    },
+    "1h": {
+      "rows_in": 80775,
+      "rows_out": 33545
+    }
+  },
+  "OZON": {
+    "10min": {
+      "rows_in": 73870,
+      "rows_out": 195654
+    },
+    "30min": {
+      "rows_in": 73870,
+      "rows_out": 65219
+    },
+    "1h": {
+      "rows_in": 73870,
+      "rows_out": 32610
+    }
   }
 }
