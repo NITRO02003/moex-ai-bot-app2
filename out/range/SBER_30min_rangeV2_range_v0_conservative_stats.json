@@ -1,0 +1,28 @@
+{
+  "SBER": {
+    "total_return": -0.09808080891246695,
+    "max_drawdown": -0.10258872439541367,
+    "calmar": -0.9560583727937625,
+    "volatility_ann": 0.0028067481210381547,
+    "sharpe_ann": -0.3197787833477415,
+    "trade_count": 137,
+    "win_rate": 0.3795620437956204,
+    "avg_trade": -715.9183132296821,
+    "pnl_sum": -98080.80891246644,
+    "pnl_mean": -715.9183132296821,
+    "pnl_std": 2334.5843079341616,
+    "pf": 0.5115841918642214,
+    "max_total_dd_limit": 0.1,
+    "max_daily_dd_limit": 0.02,
+    "hit_max_total_dd": true,
+    "hit_max_daily_dd_days": 1,
+    "regime_exit_trades": 0,
+    "bars_total": 28857,
+    "bars_in_regime": 28857,
+    "entries_raw": 334,
+    "entries_after_regime_filter": 334,
+    "regime_filter": null,
+    "regime_segments_path": null,
+    "profile": "range_v0_conservative"
+  }
+}

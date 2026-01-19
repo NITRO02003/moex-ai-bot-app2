@@ -11,7 +11,12 @@ import concurrent.futures as cf
 from .config import load_config
 from .utils import load_symbols
 from .rule_core import RuleBtParams, run_rule_symbol
-from .rule_strategies import MeanRevParams, generate_meanrev_signals
+from .rule_strategies import (
+    MeanRevParams,
+    MeanRevV2Params,
+    generate_meanrev_signals,
+    generate_meanrev_v2_signals,
+)
 
 
 # ---------- генерация сетки параметров ----------
@@ -29,8 +34,7 @@ def _iter_param_grid(grid: Dict[str, Iterable]) -> Iterable[Dict[str, Any]]:
 
 
 def _load_prices(sym: str, interval: str = "30min") -> pd.DataFrame | None:
-    """
-    Загружаем данные по тикеру.
+    """Загрузка данных по тикеру для свипа.
 
     Приоритет:
       1) processed/{sym}_{interval}.csv
@@ -40,29 +44,39 @@ def _load_prices(sym: str, interval: str = "30min") -> pd.DataFrame | None:
         os.path.join("processed", f"{sym}_{interval}.csv"),
         os.path.join("data", f"{sym}.csv"),
     ]
-    for path in candidates:
-        if os.path.exists(path):
-            df = pd.read_csv(path)
-            # Стандартизируем колонку времени:
-            if "begin" in df.columns and "datetime" not in df.columns:
-                df["datetime"] = pd.to_datetime(df["begin"])
-            elif "datetime" in df.columns:
-                df["datetime"] = pd.to_datetime(df["datetime"])
-            else:
-                # если нет явной колонки времени — считаем, что это проблема данных
-                print(f"[sweep-meanrev] {sym}: no datetime/begin column in {path}, skip")
-                return None
-            return df
-    print(f"[sweep-meanrev] {sym}: no data file found")
-    return None
+    path: str | None = None
+    for p in candidates:
+        if os.path.exists(p):
+            path = p
+            break
+
+    if path is None:
+        print(f"[sweep] {sym}: no data file found")
+        return None
+
+    df = pd.read_csv(path)
+
+    # выбрасываем бары без цены
+    if "close" in df.columns:
+        df = df[~df["close"].isna()].copy()
+
+    # стандартизируем колонку времени
+    if "begin" in df.columns and "datetime" not in df.columns:
+        df["datetime"] = pd.to_datetime(df["begin"])
+    elif "datetime" in df.columns:
+        df["datetime"] = pd.to_datetime(df["datetime"])
+    else:
+        print(f"[sweep] {sym}: no datetime/begin column in {path}, skip symbol")
+        return None
+
+    return df
 
 
-# ---------- сборка параметров стратегии ----------
+# ---------- сборка параметров стратегий ----------
 
 
 def _build_meanrev_params(param_set: Dict[str, Any]) -> MeanRevParams:
-    """
-    Собираем MeanRevParams из словаря параметров.
+    """Собираем MeanRevParams из словаря параметров.
 
     Поддерживаем:
       - rsi_len, rsi_low, rsi_high
@@ -90,16 +104,33 @@ def _build_meanrev_params(param_set: Dict[str, Any]) -> MeanRevParams:
     return p
 
 
-# ---------- worker для одного тикера ----------
+def _build_meanrev_v2_params(param_set: Dict[str, Any]) -> MeanRevV2Params:
+    """Собираем MeanRevV2Params из словаря параметров."""
+    p = MeanRevV2Params()
+
+    if "ma_len" in param_set:
+        p.ma_len = int(param_set["ma_len"])
+    if "atr_len" in param_set:
+        p.atr_len = int(param_set["atr_len"])
+    if "z_entry" in param_set:
+        p.z_entry = float(param_set["z_entry"])
+    if "z_entry_long" in param_set and param_set["z_entry_long"] is not None:
+        p.z_entry_long = float(param_set["z_entry_long"])
+    if "z_entry_short" in param_set and param_set["z_entry_short"] is not None:
+        p.z_entry_short = float(param_set["z_entry_short"])
+    if "regime_filter" in param_set and param_set["regime_filter"] is not None:
+        p.regime_filter = list(param_set["regime_filter"])
+
+    return p
+
+
+# ---------- worker'ы для одного тикера ----------
 
 
 def _eval_meanrev_for_symbol(
     args: Tuple[str, List[Dict[str, Any]], float, str, Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
-    """
-    Рабочая функция, обрабатывающая ОДИН тикер по ВСЕМ комбинациям параметров.
-    Вызывается либо в отдельном процессе, либо в основном потоке.
-    """
+    """Обработка ОДНОГО тикера по ВСЕМ комбинациям параметров (meanrev v1)."""
     sym, combos, equity0, interval, bt_params_dict = args
     rows: List[Dict[str, Any]] = []
 
@@ -113,7 +144,6 @@ def _eval_meanrev_for_symbol(
     print(f"[sweep-meanrev] {sym}: start, combos={len(combos)}, rows={len(df)}")
 
     for idx, param_set in enumerate(combos):
-        # можно логировать прогресс по конкретному символу раз в N комбинаций
         if idx and idx % 200 == 0:
             print(f"[sweep-meanrev] {sym}: combo {idx}/{len(combos)}")
 
@@ -132,10 +162,103 @@ def _eval_meanrev_for_symbol(
             **param_set,
             "total_return": metrics.get("total_return", 0.0),
             "max_drawdown": metrics.get("max_drawdown", 0.0),
+            "calmar": metrics.get("calmar", 0.0),
+            "volatility_ann": metrics.get("volatility_ann", 0.0),
+            "sharpe_ann": metrics.get("sharpe_ann", 0.0),
+            "pf": metrics.get("pf", 0.0),
+            "trade_count": metrics.get("trade_count", 0),
+            "win_rate": metrics.get("win_rate", 0.0),
+            "avg_trade": metrics.get("avg_trade", 0.0),
+            "pnl_sum": metrics.get("pnl_sum", 0.0),
+            "pnl_mean": metrics.get("pnl_mean", 0.0),
+            "pnl_std": metrics.get("pnl_std", 0.0),
         }
         rows.append(row)
 
     print(f"[sweep-meanrev] {sym}: done, rows={len(rows)}")
+    return rows
+
+
+def _eval_meanrev_v2_for_symbol(
+    args: Tuple[
+        str,
+        List[Dict[str, Any]],
+        float,
+        str,
+        Dict[str, Any],
+        Dict[str, Any],
+        Dict[str, Dict[str, Any]],
+        Dict[str, Any],
+    ]
+) -> List[Dict[str, Any]]:
+    """Обработка ОДНОГО тикера по ВСЕМ комбинациям параметров meanrev_v2 и профилям."""
+    (
+        sym,
+        combos,
+        equity0,
+        interval,
+        bt_params_dict,
+        v2_defaults,
+        profiles_v2,
+        regime_cfg,
+    ) = args
+
+    rows: List[Dict[str, Any]] = []
+
+    df = _load_prices(sym, interval=interval)
+    if df is None:
+        print(f"[sweep-meanrev_v2] {sym}: no data, skip symbol")
+        return rows
+
+    bt_params = RuleBtParams(**bt_params_dict)
+
+    print(
+        f"[sweep-meanrev_v2] {sym}: start, combos={len(combos)}, "
+        f"profiles={list(profiles_v2.keys())}, rows={len(df)}"
+    )
+
+    for profile_name, profile_v2 in profiles_v2.items():
+        for idx, param_set in enumerate(combos):
+            # базовая конфигурация стратегии: defaults + профиль + сетка
+            strat_cfg: Dict[str, Any] = dict(v2_defaults or {})
+            if profile_v2:
+                strat_cfg.update(profile_v2)
+            strat_cfg.update(param_set)
+
+            s_params = _build_meanrev_v2_params(strat_cfg)
+            side, z_score, regime = generate_meanrev_v2_signals(
+                df,
+                s_params,
+                regime_params=regime_cfg,
+            )
+
+            df2 = df.copy()
+            df2["signal"] = side
+
+            res = run_rule_symbol(df2, bt_params, equity0)
+            metrics = res.get("metrics", {})
+
+            row = {
+                "strategy": "meanrev_v2",
+                "profile": profile_name,
+                "symbol": sym,
+                **param_set,
+                "total_return": metrics.get("total_return", 0.0),
+                "max_drawdown": metrics.get("max_drawdown", 0.0),
+                "calmar": metrics.get("calmar", 0.0),
+                "volatility_ann": metrics.get("volatility_ann", 0.0),
+                "sharpe_ann": metrics.get("sharpe_ann", 0.0),
+                "pf": metrics.get("pf", 0.0),
+                "trade_count": metrics.get("trade_count", 0),
+                "win_rate": metrics.get("win_rate", 0.0),
+                "avg_trade": metrics.get("avg_trade", 0.0),
+                "pnl_sum": metrics.get("pnl_sum", 0.0),
+                "pnl_mean": metrics.get("pnl_mean", 0.0),
+                "pnl_std": metrics.get("pnl_std", 0.0),
+            }
+            rows.append(row)
+
+    print(f"[sweep-meanrev_v2] {sym}: done, rows={len(rows)}")
     return rows
 
 
@@ -151,11 +274,10 @@ def run_sweep(
     use_breakout_in_high_vol: bool = False,
     n_jobs: int = -1,
 ) -> Dict[str, Any]:
-    """
-    Точка входа для CLI (совместима с app2.cli).
+    """Точка входа для CLI (совместима с app2.cli).
 
     Параметры:
-      - strategy: пока реализован только 'meanrev'
+      - strategy: 'meanrev' или 'meanrev_v2'
       - config_path: путь к config.json
       - csv_path: куда сохранять результаты свипа
       - symbols: список тикеров или ['all']
@@ -163,11 +285,6 @@ def run_sweep(
       - use_breakout_in_high_vol: зарезервировано для regime-свипа
       - n_jobs: -1 = все ядра, 1 = без multiprocessing, N > 1 = N процессов
     """
-    if strategy != "meanrev":
-        raise NotImplementedError(
-            f"run_sweep: strategy '{strategy}' пока не реализован (есть только 'meanrev')"
-        )
-
     config = load_config(config_path)
     symbols = load_symbols(symbols)
 
@@ -177,59 +294,144 @@ def run_sweep(
     )
     print(f"[sweep] config={config_path}, out={csv_path}")
 
-    grid_cfg = config.get("sweep", {}).get("MeanRevParams")
-    if not grid_cfg:
-        raise ValueError("В config.json нет секции 'sweep.MeanRevParams'")
+    sweep_cfg = config.get("sweep", {}) or {}
+    defaults_cfg = config.get("defaults", {}) or {}
+    profiles_cfg = config.get("profiles", {}) or {}
 
-    print(f"[sweep-meanrev] grid keys={list(grid_cfg.keys())}")
-
-    combos = list(_iter_param_grid(grid_cfg))
-    total_combos = len(combos)
-    print(f"[sweep-meanrev] total combinations per symbol={total_combos}")
-
-    bt_defaults = config.get("defaults", {}).get("RuleBtParams", {})
+    bt_defaults = defaults_cfg.get("RuleBtParams", {}) or {}
     bt_params_dict: Dict[str, Any] = dict(bt_defaults)
 
     # пока фиксированный интервал для свипа
     interval = "30min"
 
-    # задачи теперь по ТИКЕРАМ, не по комбинациям
-    tasks: List[Tuple[str, List[Dict[str, Any]], float, str, Dict[str, Any]]] = [
-        (sym, combos, equity0, interval, bt_params_dict) for sym in symbols
-    ]
-
     all_rows: List[Dict[str, Any]] = []
 
-    # ---- однопроцессный режим ----
-    if n_jobs == 1:
-        print("[sweep] running in single-process mode")
-        for sym, combos_, eq0, interval_, bt_params_ in tasks:
-            rows = _eval_meanrev_for_symbol((sym, combos_, eq0, interval_, bt_params_))
-            all_rows.extend(rows)
+    if strategy == "meanrev":
+        grid_cfg = sweep_cfg.get("MeanRevParams")
+        if not grid_cfg:
+            raise ValueError("В config.json нет секции 'sweep.MeanRevParams'")
 
-    # ---- мультипроцессинг по символам ----
-    else:
-        max_workers = None
-        if n_jobs not in (-1, 0, None):
-            max_workers = n_jobs
+        print(f"[sweep-meanrev] grid keys={list(grid_cfg.keys())}")
 
-        print(
-            f"[sweep] using ProcessPoolExecutor(max_workers={max_workers}) "
-            f"over symbols={len(symbols)}"
-        )
+        combos = list(_iter_param_grid(grid_cfg))
+        total_combos = len(combos)
+        print(f"[sweep-meanrev] total combinations per symbol={total_combos}")
 
-        with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
-            for idx, rows in enumerate(executor.map(_eval_meanrev_for_symbol, tasks)):
-                sym = symbols[idx]
-                print(
-                    f"[sweep-meanrev] symbol {sym} finished, rows={len(rows)} "
-                    f"({idx+1}/{len(symbols)})"
-                )
+        tasks: List[Tuple[str, List[Dict[str, Any]], float, str, Dict[str, Any]]] = [
+            (sym, combos, equity0, interval, bt_params_dict) for sym in symbols
+        ]
+
+        # однопроцессный режим
+        if n_jobs == 1:
+            print("[sweep] running in single-process mode")
+            for t in tasks:
+                rows = _eval_meanrev_for_symbol(t)
                 all_rows.extend(rows)
+        else:
+            max_workers = None
+            if n_jobs not in (-1, 0, None):
+                max_workers = n_jobs
+
+            print(
+                f"[sweep] using ProcessPoolExecutor(max_workers={max_workers}) "
+                f"over symbols={len(symbols)}"
+            )
+
+            with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                for idx, rows in enumerate(executor.map(_eval_meanrev_for_symbol, tasks)):
+                    sym = symbols[idx]
+                    print(
+                        f"[sweep-meanrev] symbol {sym} finished, rows={len(rows)} "
+                        f"({idx+1}/{len(symbols)})"
+                    )
+                    all_rows.extend(rows)
+
+    elif strategy == "meanrev_v2":
+        grid_cfg = sweep_cfg.get("MeanRevV2Params")
+        if not grid_cfg:
+            raise ValueError("В config.json нет секции 'sweep.MeanRevV2Params'")
+
+        print(f"[sweep-meanrev_v2] grid keys={list(grid_cfg.keys())}")
+
+        combos = list(_iter_param_grid(grid_cfg))
+        total_combos = len(combos)
+        print(f"[sweep-meanrev_v2] total combinations per symbol={total_combos}")
+
+        v2_defaults = defaults_cfg.get("MeanRevV2Params", {}) or {}
+        regime_cfg = defaults_cfg.get("RegimeParams", {}) or {}
+
+        # берём только те профили, где есть MeanRevV2Params
+        profiles_v2: Dict[str, Dict[str, Any]] = {}
+        for name, prof in profiles_cfg.items():
+            if isinstance(prof, dict) and "MeanRevV2Params" in prof:
+                profiles_v2[name] = prof.get("MeanRevV2Params", {}) or {}
+
+        if not profiles_v2:
+            print(
+                "[sweep-meanrev_v2] WARNING: нет профилей с MeanRevV2Params, "
+                "будет использован только defaults.MeanRevV2Params без profile-колонки"
+            )
+            profiles_v2 = {"default": {}}
+
+        tasks_v2: List[
+            Tuple[
+                str,
+                List[Dict[str, Any]],
+                float,
+                str,
+                Dict[str, Any],
+                Dict[str, Any],
+                Dict[str, Dict[str, Any]],
+                Dict[str, Any],
+            ]
+        ] = [
+            (
+                sym,
+                combos,
+                equity0,
+                interval,
+                bt_params_dict,
+                v2_defaults,
+                profiles_v2,
+                regime_cfg,
+            )
+            for sym in symbols
+        ]
+
+        if n_jobs == 1:
+            print("[sweep] running in single-process mode (meanrev_v2)")
+            for t in tasks_v2:
+                rows = _eval_meanrev_v2_for_symbol(t)
+                all_rows.extend(rows)
+        else:
+            max_workers = None
+            if n_jobs not in (-1, 0, None):
+                max_workers = n_jobs
+
+            print(
+                f"[sweep] using ProcessPoolExecutor(max_workers={max_workers}) "
+                f"over symbols={len(symbols)}"
+            )
+
+            with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                for idx, rows in enumerate(
+                    executor.map(_eval_meanrev_v2_for_symbol, tasks_v2)
+                ):
+                    sym = symbols[idx]
+                    print(
+                        f"[sweep-meanrev_v2] symbol {sym} finished, rows={len(rows)} "
+                        f"({idx+1}/{len(symbols)})"
+                    )
+                    all_rows.extend(rows)
+    else:
+        raise NotImplementedError(
+            f"run_sweep: strategy '{strategy}' пока не реализован "
+            "(поддерживаются 'meanrev' и 'meanrev_v2')"
+        )
 
     if not all_rows:
         print(
-            "[sweep-meanrev] WARNING: no rows collected — "
+            "[sweep] WARNING: no rows collected — "
             "возможно, нет данных по тикерам или сетка параметров пустая."
         )
 

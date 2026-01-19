@@ -1,0 +1,28 @@
+{
+  "NLMK": {
+    "total_return": -0.10525813031652664,
+    "max_drawdown": -0.10795051195904637,
+    "calmar": -0.9750591118683981,
+    "volatility_ann": 0.0031152434982541686,
+    "sharpe_ann": -0.31017070968423954,
+    "trade_count": 142,
+    "win_rate": 0.3873239436619718,
+    "avg_trade": -741.2544388487842,
+    "pnl_sum": -105258.13031652734,
+    "pnl_mean": -741.2544388487842,
+    "pnl_std": 2487.0470874303683,
+    "pf": 0.5056297682034187,
+    "max_total_dd_limit": 0.1,
+    "max_daily_dd_limit": 0.02,
+    "hit_max_total_dd": true,
+    "hit_max_daily_dd_days": 0,
+    "regime_exit_trades": 0,
+    "bars_total": 28861,
+    "bars_in_regime": 28861,
+    "entries_raw": 364,
+    "entries_after_regime_filter": 364,
+    "regime_filter": null,
+    "regime_segments_path": null,
+    "profile": "range_v0_baseline"
+  }
+}

@@ -2,7 +2,7 @@
 import pandas as pd
 from dataclasses import dataclass, field
 from typing import Optional
-from .rule_strategies import generate_trend_signals, generate_meanrev_signals, generate_breakout_signals
+from .rule_strategies import generate_trend_signals, generate_meanrev_signals, generate_breakout_signals, TrendParams
 from .rule_core import run_rule_symbol, RuleBtParams
 from .regime_detector import detect_regime
 
@@ -21,7 +21,11 @@ class RegimeRuleBtParams(RuleBtParams):
 
 def run_regime_rule_symbol(df: pd.DataFrame, params: RegimeRuleBtParams, equity0=1_000_000, use_breakout_in_high_vol=False):
     df = detect_regime(df, params.regime_params)
-    df["signal_trend"] = generate_trend_signals(df, **params.trend_params)
+    trend_params = TrendParams(**params.trend_params)
+    trend_params.regime_aware = True
+    trend_params.close_on_regime_change = True
+    trend_df = generate_trend_signals(df, trend_params)
+    df["signal_trend"] = trend_df["signal"]
     df["signal_meanrev"] = generate_meanrev_signals(df, **params.meanrev_params)
     df["signal_breakout"] = generate_breakout_signals(df, **params.breakout_params)
 
@@ -53,7 +57,7 @@ def main(args):
 
     for sym in symbols:
         path = os.path.join("processed", f"{sym}_{args.interval}.csv")
-        df = pd.read_csv(path, parse_dates=["datetime"])
+        df = pd.read_csv(path, parse_dates=["begin"])
         res = run_regime_rule_symbol(df, params, equity0=args.equity0, use_breakout_in_high_vol=not args.no_breakout)
         results[sym] = res["metrics"]
 

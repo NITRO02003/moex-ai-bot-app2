@@ -1,0 +1,28 @@
+{
+  "GAZP": {
+    "total_return": -0.10341672148429182,
+    "max_drawdown": -0.10569008495360943,
+    "calmar": -0.9784902862901902,
+    "volatility_ann": 0.0030013776054304588,
+    "sharpe_ann": -0.316050831590219,
+    "trade_count": 128,
+    "win_rate": 0.3671875,
+    "avg_trade": -807.9431365960277,
+    "pnl_sum": -103416.72148429156,
+    "pnl_mean": -807.9431365960277,
+    "pnl_std": 2640.692597371987,
+    "pf": 0.5021904808347499,
+    "max_total_dd_limit": 0.1,
+    "max_daily_dd_limit": 0.02,
+    "hit_max_total_dd": true,
+    "hit_max_daily_dd_days": 0,
+    "regime_exit_trades": 0,
+    "bars_total": 28863,
+    "bars_in_regime": 28863,
+    "entries_raw": 374,
+    "entries_after_regime_filter": 374,
+    "regime_filter": null,
+    "regime_segments_path": null,
+    "profile": "range_v0_conservative"
+  }
+}

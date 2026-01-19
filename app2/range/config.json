@@ -1,0 +1,234 @@
+{
+  "defaults": {
+    "RangeParams": {
+      "ma_len": 50,
+      "band_mult": 1.5,
+      "atr_len": 14,
+      "sl_atr_mult": 2.0,
+      "tp_atr_mult": 2.0,
+      "max_hold_bars": 48,
+      "min_hold_bars": 0,
+      "cooldown_bars": 0,
+      "use_time_filter": false,
+      "session_start": "10:00",
+      "session_end": "18:40",
+      "min_atr_pct": 0.0005,
+      "max_atr_pct": 0.03,
+      "min_volume": 0.0
+    }
+  },
+  "logging": {
+    "save_trades": true,
+    "save_snapshots": true
+  },
+  "paths": {
+    "out_prefix": "out/range"
+  },
+  "profiles": {
+    "range_v0_baseline": {
+      "ma_len": 50,
+      "band_mult": 1.5,
+      "atr_len": 14,
+      "sl_atr_mult": 2.0,
+      "tp_atr_mult": 2.0,
+      "max_hold_bars": 48,
+      "min_hold_bars": 0,
+      "cooldown_bars": 0,
+      "use_time_filter": false,
+      "session_start": "10:00",
+      "session_end": "18:40",
+      "min_atr_pct": 0.0005,
+      "max_atr_pct": 0.03,
+      "min_volume": 0.0
+    },
+    "range_v0_conservative": {
+      "ma_len": 50,
+      "band_mult": 1.5,
+      "atr_len": 14,
+      "sl_atr_mult": 2.0,
+      "tp_atr_mult": 2.0,
+      "max_hold_bars": 48,
+      "min_hold_bars": 0,
+      "cooldown_bars": 0,
+      "use_time_filter": false,
+      "session_start": "10:00",
+      "session_end": "18:40",
+      "min_atr_pct": 0.0005,
+      "max_atr_pct": 0.03,
+      "min_volume": 0.0
+    },
+    "range_v0_aggressive": {
+      "ma_len": 50,
+      "band_mult": 1.5,
+      "atr_len": 14,
+      "sl_atr_mult": 2.0,
+      "tp_atr_mult": 2.0,
+      "max_hold_bars": 48,
+      "min_hold_bars": 0,
+      "cooldown_bars": 0,
+      "use_time_filter": false,
+      "session_start": "10:00",
+      "session_end": "18:40",
+      "min_atr_pct": 0.0005,
+      "max_atr_pct": 0.03,
+      "min_volume": 0.0
+    },
+    "range_v2_conservative": {
+      "enabled": true,
+      "description": "Strict range V2 profile: moderate volatility, mid-band, trading only core session hours.",
+      "filters": {
+        "atr_14_pct": {
+          "mode": "quantile",
+          "q_low": 0.2,
+          "q_high": 0.6,
+          "invert": false
+        },
+        "band_pos": {
+          "mode": "quantile",
+          "q_low": 0.2,
+          "q_high": 0.8,
+          "invert": false
+        },
+        "bar_body_pct": {
+          "mode": "quantile",
+          "q_low": 0.1,
+          "q_high": 0.8,
+          "invert": false
+        }
+      },
+      "time_filters": {
+        "allowed_hours": [
+          [
+            10,
+            13
+          ],
+          [
+            14,
+            18
+          ]
+        ],
+        "allowed_dow": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "min_entries_warning": 50
+    },
+    "range_v2_balanced": {
+      "enabled": true,
+      "description": "Balanced range V2 profile: wider volatility window and band position, regular session hours.",
+      "filters": {
+        "atr_14_pct": {
+          "mode": "quantile",
+          "q_low": 0.1,
+          "q_high": 0.8,
+          "invert": false
+        },
+        "band_pos": {
+          "mode": "quantile",
+          "q_low": 0.1,
+          "q_high": 0.9,
+          "invert": false
+        },
+        "bar_body_pct": {
+          "mode": "quantile",
+          "q_low": 0.05,
+          "q_high": 0.9,
+          "invert": false
+        }
+      },
+      "time_filters": {
+        "allowed_hours": [
+          [
+            10,
+            18
+          ]
+        ],
+        "allowed_dow": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "min_entries_warning": 30
+    },
+    "range_v2_aggressive": {
+      "enabled": true,
+      "description": "Aggressive range V2 profile: very wide volatility window and band position, still within main session.",
+      "filters": {
+        "atr_14_pct": {
+          "mode": "quantile",
+          "q_low": 0.05,
+          "q_high": 0.95,
+          "invert": false
+        },
+        "band_pos": {
+          "mode": "quantile",
+          "q_low": 0.05,
+          "q_high": 0.95,
+          "invert": false
+        }
+      },
+      "time_filters": {
+        "allowed_hours": [
+          [
+            10,
+            18
+          ]
+        ],
+        "allowed_dow": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "min_entries_warning": 10
+    }
+  },
+  "RangeV3": {
+    "enabled": true,
+    "params": {
+      "range_window_bars": 50,
+      "min_tests_AAA": 3,
+      "min_tests_AA": 2,
+      "adx_low_max": 20,
+      "atr_low_q": 0.2,
+      "atr_high_q": 0.8,
+      "min_range_height_pct": 0.002,
+      "max_range_height_pct": 0.02,
+      "shadow_pct": 0.005,
+      "entry_zone_alpha": 0.2,
+      "min_confirmations": 2,
+      "tp2_gamma": 0.2,
+      "max_bars_in_trade": 48,
+      "breakout_bars": 2,
+      "breakout_atr_q": 0.9,
+      "lock_bars_after_breakout": 20,
+      "risk_pct_per_trade": 0.007,
+      "max_consecutive_losses": 3,
+      "daily_dd_limit_pct": 0.02,
+      "deadzone_min_atr_pct": 0.003,
+      "deadzone_time": {
+        "block_first_minutes": 30,
+        "block_last_minutes": 30,
+        "block_friday_after_hour": 15
+      },
+      "mode": "rolling",
+      "slope_k": 0.0005,
+      "atr_window": 50,
+      "atr_pct_min": 0.001,
+      "atr_pct_max": 0.02,
+      "atr_min_valid_frac": 0.4,
+      "atr_min_valid_bars": 10,
+      "sl_pct": 0.01,
+      "tp_pct": 0.015
+    }
+  }
+}

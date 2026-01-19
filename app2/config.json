@@ -12,7 +12,32 @@
       "ema_slow": 48,
       "atr_len": 14,
       "trend_thr": 2.5,
-      "min_gap_bars": 25
+      "min_gap_bars": 25,
+      "trend_thr_long": null,
+      "trend_thr_short": null,
+      "trend_exit_thr": null,
+      "exit_confirm_bars": 1,
+      "adx_len": 0,
+      "adx_min": 0.0,
+      "adx_exit_min": 0.0,
+      "slope_window": 0,
+      "slope_min_up": 0.0,
+      "slope_min_down": 0.0,
+      "regime_aware": false,
+      "close_on_regime_change": false
+    },
+    "MeanRevParams": {
+      "rsi_len": 14,
+      "rsi_low": 30,
+      "rsi_high": 80,
+      "boll_window": 30,
+      "boll_mult": 2.0,
+      "min_gap_bars": 20
+    },
+    "BreakoutParams": {
+      "channel_len": 50,
+      "confirm_bars": 2,
+      "min_gap_bars": 20
     },
     "RuleBtParams": {
       "commission": 0.0005,
@@ -20,10 +45,52 @@
       "risk_per_trade": 0.0015,
       "atr_len": 14,
       "sl_atr_mult": 1.5,
-      "tp_mult": 3.0
+      "tp_mult": 3.0,
+      "max_leverage": 3.0,
+      "max_daily_dd": 0.02,
+      "max_total_dd": 0.1,
+      "close_on_regime_exit": false,
+      "min_hold_bars": 0,
+      "cooldown_bars": 0,
+      "max_trades_per_day": null
+    },
+    "MeanRevV2Params": {
+      "ma_len": 48,
+      "atr_len": 14,
+      "z_entry": 2.0,
+      "z_entry_long": null,
+      "z_entry_short": null,
+      "regime_filter": [
+        "range",
+        "low_vol"
+      ]
     }
   },
   "sweep": {
+    "RegimeParams": {
+      "high_vol_quantile": [
+        0.95,
+        0.97,
+        0.98
+      ],
+      "trend_threshold": [
+        2.0,
+        2.5,
+        3.0
+      ]
+    },
+    "TrendParams": {
+      "trend_thr": [
+        2.0,
+        2.5,
+        3.0
+      ],
+      "min_gap_bars": [
+        20,
+        25,
+        30
+      ]
+    },
     "MeanRevParams": {
       "rsi_low": [
         20,
@@ -54,11 +121,97 @@
       ],
       "min_gap_bars": [
         10,
-        15,
         20,
-        25,
         30
       ]
+    },
+    "RuleBtParams": {
+      "risk_per_trade": [
+        0.001,
+        0.0015,
+        0.002
+      ],
+      "sl_atr_mult": [
+        1.5,
+        2.0,
+        2.5
+      ]
+    },
+    "MeanRevV2Params": {
+      "ma_len": [
+        32,
+        48,
+        64
+      ],
+      "atr_len": [
+        10,
+        14,
+        20
+      ],
+      "z_entry": [
+        1.8,
+        2.0,
+        2.2,
+        2.5
+      ]
+    }
+  },
+  "profiles": {
+    "conservative": {
+      "description": "Консервативный профиль mean-reversion для всех тикеров",
+      "strategy": "meanrev",
+      "MeanRevParams": {
+        "rsi_len": 14,
+        "rsi_low": 30,
+        "rsi_high": 80,
+        "boll_window": 30,
+        "boll_mult": 2.0,
+        "min_gap_bars": 20
+      },
+      "RuleBtParams": {
+        "risk_per_trade": 0.001,
+        "sl_atr_mult": 2.0,
+        "tp_mult": 3.0
+      },
+      "MeanRevV2Params": {
+        "ma_len": 64,
+        "atr_len": 14,
+        "z_entry": 2.5,
+        "z_entry_long": null,
+        "z_entry_short": null,
+        "regime_filter": [
+          "range",
+          "low_vol"
+        ]
+      }
+    },
+    "aggressive": {
+      "description": "Агрессивный профиль mean-reversion для всех тикеров",
+      "strategy": "meanrev",
+      "MeanRevParams": {
+        "rsi_len": 10,
+        "rsi_low": 25,
+        "rsi_high": 75,
+        "boll_window": 20,
+        "boll_mult": 1.5,
+        "min_gap_bars": 10
+      },
+      "RuleBtParams": {
+        "risk_per_trade": 0.0015,
+        "sl_atr_mult": 1.5,
+        "tp_mult": 3.0
+      },
+      "MeanRevV2Params": {
+        "ma_len": 32,
+        "atr_len": 14,
+        "z_entry": 1.8,
+        "z_entry_long": null,
+        "z_entry_short": null,
+        "regime_filter": [
+          "range",
+          "low_vol"
+        ]
+      }
     }
   }
 }

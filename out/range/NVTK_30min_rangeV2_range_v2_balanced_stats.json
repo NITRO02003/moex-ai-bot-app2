@@ -1,0 +1,28 @@
+{
+  "NVTK": {
+    "total_return": -0.1043701861138322,
+    "max_drawdown": -0.10578500572805694,
+    "calmar": -0.986625518385263,
+    "volatility_ann": 0.00283052872118823,
+    "sharpe_ann": -0.33959114905373494,
+    "trade_count": 130,
+    "win_rate": 0.3230769230769231,
+    "avg_trade": -802.8475854910184,
+    "pnl_sum": -104370.18611383239,
+    "pnl_mean": -802.8475854910184,
+    "pnl_std": 2296.7285135191532,
+    "pf": 0.45637171916830627,
+    "max_total_dd_limit": 0.1,
+    "max_daily_dd_limit": 0.02,
+    "hit_max_total_dd": true,
+    "hit_max_daily_dd_days": 0,
+    "regime_exit_trades": 0,
+    "bars_total": 28778,
+    "bars_in_regime": 28778,
+    "entries_raw": 379,
+    "entries_after_regime_filter": 379,
+    "regime_filter": null,
+    "regime_segments_path": null,
+    "profile": "range_v2_balanced"
+  }
+}

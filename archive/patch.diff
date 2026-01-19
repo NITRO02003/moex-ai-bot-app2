@@ -1,0 +1,183 @@
+*** Begin Patch
+*** Update File: app2/config.json
+@@ "sweep": {
+-    "MeanRevParams": {
+-      "rsi_low": [20, 25, 30, 35],
+-      "rsi_high": [65, 70, 75, 80],
+-      "rsi_len": [10, 14, 20],
+-      "boll_window": [14, 20, 30],
+-      "boll_mult": [1.5, 2.0, 2.5],
+-      "min_gap_bars": [10, 15, 20, 25, 30]
+-    }
++    "MeanRevParams": {
++      "rsi_low": [20, 25, 30, 35],
++      "rsi_high": [65, 70, 75, 80],
++      "rsi_len": [10, 14, 20],
++      "boll_window": [14, 20, 30],
++      "boll_mult": [1.5, 2.0, 2.5],
++      "min_gap_bars": [10, 15, 20, 25, 30]
++    },
++    "MeanRevParamsConservative": {
++      "rsi_low": [25, 30],
++      "rsi_high": [75, 80],
++      "rsi_len": [14, 20],
++      "boll_window": [20, 30],
++      "boll_mult": [2.0, 2.5],
++      "min_gap_bars": [20, 30]
++    },
++    "MeanRevParamsAggressive": {
++      "rsi_low": [20, 25],
++      "rsi_high": [65, 70],
++      "rsi_len": [10, 14],
++      "boll_window": [14, 20],
++      "boll_mult": [1.5],
++      "min_gap_bars": [25, 30]
++    }
+*** End Patch
+*** Update File: app2/analysis.py
+@@ def run_analyze_trades(
+-        if bar_stats is None or trades is None:
+-            print(f"[analyze-trades] {sym}: no bar_stats or trades returned, skip")
+-            continue
++        if bar_stats is None or trades is None:
++            print(f"[analyze-trades] {sym}: no bar_stats or trades returned, skip")
++            continue
++
++        # Calculate per-bar profit/loss and price change.
++        # pnl: change in equity relative to previous bar (first value = 0).
++        # price_change: difference in close price relative to previous bar (first value = 0).
++        try:
++            bar_stats = bar_stats.copy()
++            bar_stats["pnl"] = bar_stats["equity"].diff().fillna(0.0)
++            bar_stats["price_change"] = (
++                bar_stats["close"].astype(float).diff().fillna(0.0)
++            )
++        except Exception as e:
++            print(f"[analyze-trades] {sym}: failed to compute pnl/price_change: {e}")
+@@ def run_analyze_trades(
+-        bars_file = out_dir / f"{out_path.name}_{sym}_{strategy}_{interval}_bars.csv"
+-        trades_file = out_dir / f"{out_path.name}_{sym}_{strategy}_{interval}_trades.csv"
+-
+-        # Сохраняем данные с дополнительными колонками
+-        bar_stats.to_csv(bars_file, index=False)
+-        trades.to_csv(trades_file, index=False)
++        bars_file = out_dir / f"{out_path.name}_{sym}_{strategy}_{interval}_bars.csv"
++        trades_file = out_dir / f"{out_path.name}_{sym}_{strategy}_{interval}_trades.csv"
++
++        # Сохраняем данные с дополнительными колонками
++        bar_stats.to_csv(bars_file, index=False)
++        trades.to_csv(trades_file, index=False)
+@@ def run_analyze_trades(
+-        # ---- визуализация кривой PnL и динамики цены ----
+-        plot_file = None
+-        try:
+-            fig, ax1 = plt.subplots()
+-            # Кривая эквити
+-            ax1.plot(bar_stats["datetime"], bar_stats["equity"], label="Equity", linewidth=1.5)
+-            ax1.set_ylabel("Equity")
+-
+-            # Вторая ось для цены, масштабируем её к начальному капиталу для сравнимости
+-            close_vals = bar_stats["close"].astype(float)
+-            if not close_vals.empty:
+-                scaled_price = close_vals / close_vals.iloc[0] * equity0
+-                ax2 = ax1.twinx()
+-                ax2.plot(bar_stats["datetime"], scaled_price, label="Scaled Price", alpha=0.6, color="tab:orange")
+-                ax2.set_ylabel("Scaled Price")
+-
+-            ax1.set_xlabel("Datetime")
+-            # Общая легенда
+-            handles1, labels1 = ax1.get_legend_handles_labels()
+-            handles2, labels2 = ax2.get_legend_handles_labels() if 'ax2' in locals() else ([], [])
+-            fig.legend(handles1 + handles2, labels1 + labels2, loc="upper left")
+-            fig.tight_layout()
+-            plot_file = out_dir / f"{out_path.name}_{sym}_{strategy}_{interval}_pnl_price.png"
+-            fig.savefig(plot_file)
+-            plt.close(fig)
+-        except Exception as e:
+-            print(f"[analyze-trades] {sym}: failed to create PnL plot: {e}")
+-            plot_file = None
++        # ---- визуализация кривой PnL и динамики цены ----
++        plot_file = None
++        pnl_price_plot_file = None
++        try:
++            # Plot equity curve and normalized price.
++            fig, ax1 = plt.subplots()
++            ax1.plot(
++                bar_stats["datetime"],
++                bar_stats["equity"],
++                label="Equity",
++                linewidth=1.5,
++            )
++            ax1.set_ylabel("Equity")
++
++            close_vals = bar_stats["close"].astype(float)
++            if not close_vals.empty:
++                scaled_price = close_vals / close_vals.iloc[0] * equity0
++                ax2 = ax1.twinx()
++                ax2.plot(
++                    bar_stats["datetime"],
++                    scaled_price,
++                    label="Scaled Price",
++                    alpha=0.6,
++                )
++                ax2.set_ylabel("Scaled Price")
++
++            ax1.set_xlabel("Datetime")
++            handles1, labels1 = ax1.get_legend_handles_labels()
++            handles2, labels2 = (
++                ax2.get_legend_handles_labels() if "ax2" in locals() else ([], [])
++            )
++            fig.legend(
++                handles1 + handles2,
++                labels1 + labels2,
++                loc="upper left",
++            )
++            fig.tight_layout()
++            plot_file = out_dir / f"{out_path.name}_{sym}_{strategy}_{interval}_pnl_price.png"
++            fig.savefig(plot_file)
++            plt.close(fig)
++
++            # Scatter plot: price change vs PnL
++            if "pnl" in bar_stats.columns and "price_change" in bar_stats.columns:
++                fig2, ax3 = plt.subplots()
++                ax3.scatter(
++                    bar_stats["price_change"],
++                    bar_stats["pnl"],
++                    s=8,
++                    alpha=0.6,
++                )
++                ax3.axhline(0, color="black", linewidth=0.5, linestyle="--")
++                ax3.axvline(0, color="black", linewidth=0.5, linestyle="--")
++                ax3.set_xlabel("Price Change")
++                ax3.set_ylabel("PnL (Δ Equity)")
++                ax3.set_title("Bar-level PnL vs Price Change")
++                fig2.tight_layout()
++                pnl_price_plot_file = (
++                    out_dir
++                    / f"{out_path.name}_{sym}_{strategy}_{interval}_pnl_vs_price.png"
++                )
++                fig2.savefig(pnl_price_plot_file)
++                plt.close(fig2)
++        except Exception as e:
++            print(f"[analyze-trades] {sym}: failed to create plots: {e}")
++            plot_file = None
++            pnl_price_plot_file = None
+@@ def run_analyze_trades(
+-        summary[sym] = {
+-            "bars": len(bar_stats),
+-            "trades": len(trades),
+-            "metrics": metrics,
+-            "bars_file": str(bars_file),
+-            "trades_file": str(trades_file),
+-            "plot_file": str(plot_file) if plot_file is not None else None,
+-        }
++        summary[sym] = {
++            "bars": len(bar_stats),
++            "trades": len(trades),
++            "metrics": metrics,
++            "bars_file": str(bars_file),
++            "trades_file": str(trades_file),
++            "plot_file": str(plot_file) if plot_file is not None else None,
++            "pnl_vs_price_file": str(pnl_price_plot_file) if pnl_price_plot_file is not None else None,
++        }
+*** End Patch

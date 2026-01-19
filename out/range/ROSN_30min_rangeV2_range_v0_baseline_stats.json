@@ -1,0 +1,28 @@
+{
+  "ROSN": {
+    "total_return": -0.09953308725907983,
+    "max_drawdown": -0.10052689459111708,
+    "calmar": -0.9901140153977753,
+    "volatility_ann": 0.0031910500594964954,
+    "sharpe_ann": -0.285325435169126,
+    "trade_count": 144,
+    "win_rate": 0.3611111111111111,
+    "avg_trade": -691.2019948547196,
+    "pnl_sum": -99533.08725907962,
+    "pnl_mean": -691.2019948547196,
+    "pnl_std": 2719.52656501452,
+    "pf": 0.5545572615824426,
+    "max_total_dd_limit": 0.1,
+    "max_daily_dd_limit": 0.02,
+    "hit_max_total_dd": true,
+    "hit_max_daily_dd_days": 1,
+    "regime_exit_trades": 0,
+    "bars_total": 28856,
+    "bars_in_regime": 28856,
+    "entries_raw": 367,
+    "entries_after_regime_filter": 367,
+    "regime_filter": null,
+    "regime_segments_path": null,
+    "profile": "range_v0_baseline"
+  }
+}

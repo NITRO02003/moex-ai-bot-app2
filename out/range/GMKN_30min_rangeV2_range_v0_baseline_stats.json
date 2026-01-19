@@ -1,0 +1,28 @@
+{
+  "GMKN": {
+    "total_return": -0.09053798220255571,
+    "max_drawdown": -0.10081492627324307,
+    "calmar": -0.8980612846669817,
+    "volatility_ann": 0.0027140902305578776,
+    "sharpe_ann": -0.3051936134259814,
+    "trade_count": 110,
+    "win_rate": 0.36363636363636365,
+    "avg_trade": -823.0725654777717,
+    "pnl_sum": -90537.98220255488,
+    "pnl_mean": -823.0725654777717,
+    "pnl_std": 2481.577510887843,
+    "pf": 0.47706368243372005,
+    "max_total_dd_limit": 0.1,
+    "max_daily_dd_limit": 0.02,
+    "hit_max_total_dd": true,
+    "hit_max_daily_dd_days": 0,
+    "regime_exit_trades": 0,
+    "bars_total": 28744,
+    "bars_in_regime": 28744,
+    "entries_raw": 386,
+    "entries_after_regime_filter": 386,
+    "regime_filter": null,
+    "regime_segments_path": null,
+    "profile": "range_v0_baseline"
+  }
+}
