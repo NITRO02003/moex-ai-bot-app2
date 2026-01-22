@@ -1,0 +1,21 @@
+{
+  "symbol": "MTSS",
+  "trades": 60,
+  "total_pnl": 112909.7860702366,
+  "total_return": 0.1129097860702366,
+  "win_rate": 0.5833333333333334,
+  "gross_profit": 230024.58982074822,
+  "gross_loss": 117114.80375051164,
+  "pf": 1.964094909049816,
+  "max_drawdown": -0.028803389931551963,
+  "equity0": 1000000.0,
+  "equity_final": 1112909.7860702365,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null,
+  "entry_ai_mode": "top_pct",
+  "entry_ai_threshold": 0.5546647020035224,
+  "entry_ai_top_pct": 0.3,
+  "entry_ai_signal_bars": 398,
+  "entry_ai_allowed": 120,
+  "entry_ai_blocked": 278
+}

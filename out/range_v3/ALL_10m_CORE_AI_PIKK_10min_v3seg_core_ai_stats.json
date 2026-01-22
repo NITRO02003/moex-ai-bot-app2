@@ -1,0 +1,21 @@
+{
+  "symbol": "PIKK",
+  "trades": 159,
+  "total_pnl": -80238.31271591393,
+  "total_return": -0.08023831271591393,
+  "win_rate": 0.44025157232704404,
+  "gross_profit": 338968.7225589357,
+  "gross_loss": 419207.0352748496,
+  "pf": 0.8085950235465243,
+  "max_drawdown": -0.11955442158154025,
+  "equity0": 1000000.0,
+  "equity_final": 919761.687284086,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null,
+  "entry_ai_mode": "top_pct",
+  "entry_ai_threshold": 0.5337401282058214,
+  "entry_ai_top_pct": 0.3,
+  "entry_ai_signal_bars": 1164,
+  "entry_ai_allowed": 349,
+  "entry_ai_blocked": 815
+}

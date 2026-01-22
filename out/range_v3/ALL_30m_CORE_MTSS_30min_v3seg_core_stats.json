@@ -1,0 +1,15 @@
+{
+  "symbol": "MTSS",
+  "trades": 334,
+  "total_pnl": -218924.40105874895,
+  "total_return": -0.21892440105874894,
+  "win_rate": 0.48502994011976047,
+  "gross_profit": 711255.8886222589,
+  "gross_loss": 930180.2896810079,
+  "pf": 0.7646430444856814,
+  "max_drawdown": -0.2644947328311845,
+  "equity0": 1000000.0,
+  "equity_final": 781075.5989412507,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

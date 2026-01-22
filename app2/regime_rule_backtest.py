@@ -1,5 +1,7 @@
 
 import pandas as pd
+
+from .parallel import parallel_map
 from dataclasses import dataclass, field
 from typing import Optional
 from .rule_strategies import generate_trend_signals, generate_meanrev_signals, generate_breakout_signals, TrendParams
@@ -44,22 +46,39 @@ def run_regime_rule_symbol(df: pd.DataFrame, params: RegimeRuleBtParams, equity0
     df["signal"] = signal
     return run_rule_symbol(df, params, equity0)
 
-def main(args):
+def _run_regime_rule_task(
+    args: tuple[str, str, float, RegimeRuleBtParams, bool],
+) -> tuple[str, dict | None]:
+    sym, interval, equity0, params, use_breakout = args
     import os
+
+    path = os.path.join("processed", f"{sym}_{interval}.csv")
+    if not os.path.exists(path):
+        return sym, None
+    df = pd.read_csv(path, parse_dates=["begin"])
+    res = run_regime_rule_symbol(df, params, equity0=equity0, use_breakout_in_high_vol=use_breakout)
+    return sym, res.get("metrics", {})
+
+
+def main(args):
     import json
     from .utils import load_symbols, save_json
     from .config import load_config
 
     symbols = load_symbols(args.symbols)
-    results = {}
+    n_jobs = getattr(args, "n_jobs", None)
     config = load_config()
+    _ = config  # keep config load for future extensions
     params = RegimeRuleBtParams()
 
-    for sym in symbols:
-        path = os.path.join("processed", f"{sym}_{args.interval}.csv")
-        df = pd.read_csv(path, parse_dates=["begin"])
-        res = run_regime_rule_symbol(df, params, equity0=args.equity0, use_breakout_in_high_vol=not args.no_breakout)
-        results[sym] = res["metrics"]
+    tasks = [
+        (sym, args.interval, float(args.equity0), params, not args.no_breakout)
+        for sym in symbols
+    ]
+    results = {}
+    for sym, metrics in parallel_map(tasks, _run_regime_rule_task, n_jobs=n_jobs):
+        if metrics is not None:
+            results[sym] = metrics
 
     if args.out:
         save_json(results, args.out)

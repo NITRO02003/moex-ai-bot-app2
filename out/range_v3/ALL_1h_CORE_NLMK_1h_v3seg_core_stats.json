@@ -1,0 +1,15 @@
+{
+  "symbol": "NLMK",
+  "trades": 116,
+  "total_pnl": 12294.790625794918,
+  "total_return": 0.012294790625794918,
+  "win_rate": 0.5517241379310345,
+  "gross_profit": 385972.4615768462,
+  "gross_loss": 373677.6709510513,
+  "pf": 1.0329021281750748,
+  "max_drawdown": -0.07724306985217656,
+  "equity0": 1000000.0,
+  "equity_final": 1012294.7906257941,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

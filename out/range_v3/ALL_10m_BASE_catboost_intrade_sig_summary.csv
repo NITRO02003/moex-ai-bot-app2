@@ -1,0 +1,10 @@
+name,features,rows,target_rate,f1,precision,recall,auc,threshold
+compact,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,dist_from_ma,band_pos,edge_proximity,z_ma,hour,day_of_week",12160,0.3124177631578947,0.7434238896075894,0.6868525896414343,0.8101503759398496,0.5291822470615041,0.65
+compact_bar,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,bar_range_pct,bar_body_pct,body_vs_range",12160,0.3124177631578947,0.7067551737602499,0.6045424181696727,0.8505639097744361,0.5291822470615041,0.6
+compact_loc,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,dist_from_ma,band_pos,edge_proximity,z_ma",12160,0.3124177631578947,0.7337526205450734,0.5839822024471635,0.9868421052631579,0.5291822470615041,0.49999999999999994
+compact_loc_ret,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,dist_from_ma,band_pos,edge_proximity,z_ma,ret_1,ret_3,ret_6,ret_mean_20,ret_vol_20",12160,0.3124177631578947,0.7214684756584199,0.6269070735090153,0.849624060150376,0.5291822470615041,0.65
+compact_loc_v3q,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,dist_from_ma,band_pos,edge_proximity,z_ma",12160,0.3124177631578947,0.7337526205450734,0.5839822024471635,0.9868421052631579,0.5291822470615041,0.49999999999999994
+compact_ret,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,ret_1,ret_3,ret_6,ret_mean_20,ret_vol_20",12160,0.3124177631578947,0.688272921108742,0.629976580796253,0.7584586466165414,0.5291822470615041,0.65
+compact_ret_bar,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,ret_1,ret_3,ret_6,ret_mean_20,ret_vol_20,bar_range_pct,bar_body_pct,body_vs_range",12160,0.3124177631578947,0.7060250707642538,0.6195883605393896,0.8204887218045113,0.5291822470615041,0.6
+compact_time,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct,dist_from_ma,band_pos,edge_proximity,z_ma,hour,day_of_week",12160,0.3124177631578947,0.7434238896075894,0.6868525896414343,0.8101503759398496,0.5291822470615041,0.65
+compact_v3q,"v3_signal,band_width_pct,range_vs_atr,atr_14_pct",12160,0.3124177631578947,0.7199396909159443,0.6010069225928257,0.8975563909774437,0.5291822470615041,0.6

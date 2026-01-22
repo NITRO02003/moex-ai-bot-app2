@@ -6,6 +6,7 @@ import json
 
 import pandas as pd
 
+from .parallel import parallel_map
 from .utils import load_symbols
 from .config import load_config
 from .regime_detector import detect_regime, regime_distribution, build_regime_segments
@@ -61,6 +62,51 @@ def cmd_forward_test(args):
     return forward_test.main(args)
 
 
+def _detect_regime_task(
+    args: tuple[str, str, dict],
+) -> tuple[str, dict[str, float] | None, pd.DataFrame | None]:
+    sym, interval, regime_cfg = args
+
+    fname_proc = os.path.join("processed", f"{sym}_{interval}.csv")
+    fname_raw = os.path.join("data", f"{sym}.csv")
+
+    path = None
+    if os.path.exists(fname_proc):
+        path = fname_proc
+    elif os.path.exists(fname_raw):
+        path = fname_raw
+
+    if path is None:
+        print(f"[detect-regime] {sym}: no data file found")
+        return sym, None, None
+
+    df = pd.read_csv(path)
+
+    dt_col = None
+    if "datetime" in df.columns:
+        dt_col = "datetime"
+    elif "begin" in df.columns:
+        dt_col = "begin"
+
+    if dt_col is None:
+        print(f"[detect-regime] {sym}: no datetime/begin column in {path}, skip")
+        return sym, None, None
+
+    df[dt_col] = pd.to_datetime(df[dt_col])
+    df = df.sort_values(dt_col).reset_index(drop=True)
+
+    if "close" not in df.columns:
+        print(f"[detect-regime] {sym}: no close column in {path}, skip")
+        return sym, None, None
+
+    df_reg = detect_regime(df, regime_cfg)
+    dist = regime_distribution(df_reg["regime"])
+    seg_df = build_regime_segments(df_reg, df_reg["regime"])
+    if not seg_df.empty:
+        seg_df.insert(0, "symbol", sym)
+    return sym, dist, seg_df if not seg_df.empty else None
+
+
 def cmd_detect_regime(args):
     """Диагностика долей режимов (trend/range/high_vol) по тикерам.
 
@@ -69,55 +115,18 @@ def cmd_detect_regime(args):
     symbols = load_symbols(args.symbols)
     cfg = load_config(args.config)
     regime_cfg = cfg.get("defaults", {}).get("RegimeParams", {})
+    n_jobs = getattr(args, "n_jobs", None)
 
     results: dict[str, dict[str, float]] = {}
     segments_dfs = []
 
-    for sym in symbols:
-        # пытаемся сначала взять агрегированные данные, потом сырые
-        fname_proc = os.path.join("processed", f"{sym}_{args.interval}.csv")
-        fname_raw = os.path.join("data", f"{sym}.csv")
-
-        path = None
-        if os.path.exists(fname_proc):
-            path = fname_proc
-        elif os.path.exists(fname_raw):
-            path = fname_raw
-
-        if path is None:
-            print(f"[detect-regime] {sym}: no data file found")
+    tasks = [(sym, args.interval, regime_cfg) for sym in symbols]
+    for sym, dist, seg_df in parallel_map(tasks, _detect_regime_task, n_jobs=n_jobs):
+        if dist is None:
             continue
-
-        df = pd.read_csv(path)
-
-        dt_col = None
-        if "datetime" in df.columns:
-            dt_col = "datetime"
-        elif "begin" in df.columns:
-            dt_col = "begin"
-
-        if dt_col is None:
-            print(f"[detect-regime] {sym}: no datetime/begin column in {path}, skip")
-            continue
-
-        df[dt_col] = pd.to_datetime(df[dt_col])
-        df = df.sort_values(dt_col).reset_index(drop=True)
-
-        # нужны хотя бы цены закрытия
-        if "close" not in df.columns:
-            print(f"[detect-regime] {sym}: no close column in {path}, skip")
-            continue
-
-        df_reg = detect_regime(df, regime_cfg)
-        dist = regime_distribution(df_reg["regime"])
-
         results[sym] = dist
-
-        if getattr(args, "segments_out", None):
-            seg_df = build_regime_segments(df_reg, df_reg["regime"])
-            if not seg_df.empty:
-                seg_df.insert(0, "symbol", sym)
-                segments_dfs.append(seg_df)
+        if getattr(args, "segments_out", None) and seg_df is not None:
+            segments_dfs.append(seg_df)
 
     out_obj = {
         "interval": args.interval,
@@ -163,6 +172,7 @@ def cmd_analyze_trades(args):
         config_path=args.config,
         out_prefix=args.out_prefix,
         profile=args.profile,
+        n_jobs=getattr(args, "n_jobs", None),
     )
 def cmd_range_backtest(args):
     """Range regime backtest (long-only, R&D)."""
@@ -226,6 +236,34 @@ def cmd_range_v3_backtest(args):
     v3_mod = importlib.import_module(mod_name)
     return v3_mod.main(args)
 
+
+def cmd_range_debug_segments(args):
+    """Debug offline range segments (CSV + JSON)."""
+    from .range import debug_segments
+
+    return debug_segments.main(args)
+
+
+def cmd_range_v3_make_datasets(args):
+    """Generate entry/in-trade datasets from range-v3 artifacts."""
+    from .range import make_datasets
+
+    return make_datasets.main(args)
+
+
+def cmd_leakage_check(args):
+    """Run leakage validator for feature/pipe checks."""
+    from .tools import leakage_validator
+
+    return leakage_validator.main(args)
+
+
+def cmd_range_core_sweep(args):
+    """Grid sweep for core_v4 parameters."""
+    from .range.core import sweep
+
+    return sweep.main(args)
+
 # ---------- CLI ----------
 
 
@@ -276,6 +314,12 @@ def main():
         type=str,
         help="Regime name to keep (e.g. trend, range, high_vol)",
     )
+    p_rb.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
+    )
     p_rb.set_defaults(func=cmd_rule_backtest)
 
     # regime-rule-backtest
@@ -310,6 +354,12 @@ def main():
         "--out",
         type=str,
         help="Path to JSON report (optional)",
+    )
+    p_reg.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
     )
     p_reg.set_defaults(func=cmd_regime_rule_backtest)
     # range-backtest
@@ -363,6 +413,12 @@ def main():
         type=str,
         help="Optional profile name from 'profiles' section in range config (if omitted, use defaults)",
     )
+    p_range.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
+    )
     p_range.set_defaults(func=cmd_range_backtest)
     # range-v3-backtest
     p_rv3 = subparsers.add_parser(
@@ -412,7 +468,323 @@ def main():
         default="legacy",
         help="Range engine: 'legacy' (default) or 'core' (experimental, offline only)",
     )
+    p_rv3.add_argument(
+        "--entry-model-path",
+        type=str,
+        default="",
+        help="Optional entry model path for AI gating (core only)",
+    )
+    p_rv3.add_argument(
+        "--entry-model-mode",
+        type=str,
+        choices=["off", "threshold", "top_pct"],
+        default="off",
+        help="Entry AI gating mode (core only)",
+    )
+    p_rv3.add_argument(
+        "--entry-model-threshold",
+        type=float,
+        default=0.5,
+        help="Entry AI threshold (mode=threshold)",
+    )
+    p_rv3.add_argument(
+        "--entry-model-top-pct",
+        type=float,
+        default=0.3,
+        help="Entry AI top-pct (mode=top_pct)",
+    )
+    p_rv3.add_argument(
+        "--entry-model-trend-path",
+        type=str,
+        default="",
+        help="Optional trend entry model path for AI gating (core only)",
+    )
+    p_rv3.add_argument(
+        "--entry-model-trend-mode",
+        type=str,
+        choices=["off", "threshold", "top_pct"],
+        default="off",
+        help="Trend entry AI gating mode (core only)",
+    )
+    p_rv3.add_argument(
+        "--entry-model-trend-threshold",
+        type=float,
+        default=0.5,
+        help="Trend entry AI threshold (mode=threshold)",
+    )
+    p_rv3.add_argument(
+        "--entry-model-trend-top-pct",
+        type=float,
+        default=0.3,
+        help="Trend entry AI top-pct (mode=top_pct)",
+    )
+    p_rv3.add_argument(
+        "--entry-trend-slope-k",
+        type=float,
+        default=0.0,
+        help="Slope threshold for high-confidence trend (0 = slope_k * 0.5)",
+    )
+    p_rv3.add_argument(
+        "--entry-feature-include",
+        type=str,
+        default="",
+        help="Comma-separated entry feature list for AI gating (core only)",
+    )
+    p_rv3.add_argument(
+        "--no-hold-weekend",
+        action="store_true",
+        help="Close open positions before weekend (core only)",
+    )
+    p_rv3.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
+    )
     p_rv3.set_defaults(func=cmd_range_v3_backtest)
+
+    # range-debug-segments
+    p_rdbg = subparsers.add_parser(
+        "range-debug-segments",
+        help="Debug range segments (CSV snapshots + debug JSON)",
+    )
+    p_rdbg.add_argument(
+        "--symbol",
+        type=str,
+        required=True,
+        help="Ticker, e.g. SBER",
+    )
+    p_rdbg.add_argument(
+        "--interval",
+        type=str,
+        default="30min",
+        help="Timeframe, e.g. 10min, 30min, 1h",
+    )
+    p_rdbg.add_argument(
+        "--date",
+        type=str,
+        default="",
+        help="Optional date filter YYYY-MM-DD",
+    )
+    p_rdbg.add_argument(
+        "--config-range",
+        type=str,
+        default="app2/range/config.json",
+        help="Path to range-specific config JSON",
+    )
+    p_rdbg.add_argument(
+        "--out-prefix",
+        type=str,
+        required=True,
+        help="Output prefix, e.g. out/range_v3/SEGMENTS_DEBUG_SBER_30m_2024-01-15",
+    )
+    p_rdbg.set_defaults(func=cmd_range_debug_segments)
+
+    # range-v3-make-datasets
+    p_rds = subparsers.add_parser(
+        "range-v3-make-datasets",
+        help="Build entry snapshots dataset from range-v3 backtest artifacts",
+    )
+    p_rds.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+        help="List of tickers (must match backtest artifacts)",
+    )
+    p_rds.add_argument(
+        "--interval",
+        type=str,
+        default="30min",
+        help="Timeframe, e.g. 10min, 30min, 1h",
+    )
+    p_rds.add_argument(
+        "--out-prefix",
+        type=str,
+        required=True,
+        help="Base prefix used by range-v3-backtest (out/range_v3/ALL_30m_BASE)",
+    )
+    p_rds.add_argument(
+        "--config-range",
+        type=str,
+        default="app2/range/config.json",
+        help="Path to range-specific config JSON (for entry candidates)",
+    )
+    p_rds.add_argument(
+        "--tag",
+        type=str,
+        default="v3seg_base",
+        help="Tag used in backtest outputs",
+    )
+    p_rds.add_argument(
+        "--mode",
+        type=str,
+        choices=["entry", "intrade", "both"],
+        default="both",
+        help="Which datasets to build: entry, intrade, or both (default: both)",
+    )
+    p_rds.add_argument(
+        "--entry-mode",
+        type=str,
+        choices=["trades", "candidates", "both"],
+        default="trades",
+        help="Entry dataset mode: trades (default) or candidates",
+    )
+    p_rds.add_argument(
+        "--entry-label-mode",
+        type=str,
+        choices=["ret", "ret_mae", "mfe_mae", "quantile"],
+        default="ret",
+        help="Labeling mode for entry candidates",
+    )
+    p_rds.add_argument(
+        "--entry-horizon-bars",
+        type=int,
+        default=6,
+        help="Forward horizon (bars) for entry candidate labels",
+    )
+    p_rds.add_argument(
+        "--entry-return-threshold",
+        type=float,
+        default=0.001,
+        help="Return threshold for y_entry on candidates",
+    )
+    p_rds.add_argument(
+        "--entry-mfe-threshold",
+        type=float,
+        default=0.0,
+        help="MFE threshold for y_entry (mfe_mae mode)",
+    )
+    p_rds.add_argument(
+        "--entry-mae-threshold",
+        type=float,
+        default=0.0,
+        help="MAE threshold for y_entry (mfe_mae/ret_mae mode)",
+    )
+    p_rds.add_argument(
+        "--entry-quantile",
+        type=float,
+        default=0.3,
+        help="Quantile for y_entry in quantile mode",
+    )
+    p_rds.add_argument(
+        "--entry-quantile-drop-middle",
+        action="store_true",
+        help="Drop middle quantiles for y_entry (quantile mode)",
+    )
+    p_rds.add_argument(
+        "--exit-improve-threshold",
+        type=float,
+        default=0.0,
+        help=(
+            "Labeling threshold for y_exit: "
+            "next-bar pnl_rel must exceed final trade pnl_rel by this value"
+        ),
+    )
+    p_rds.add_argument(
+        "--exit-min-bars",
+        type=int,
+        default=0,
+        help="Minimum bars_held before y_exit can be set to 1 (default: 0)",
+    )
+    p_rds.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
+    )
+    p_rds.set_defaults(func=cmd_range_v3_make_datasets)
+
+    # leakage-check
+    p_lc = subparsers.add_parser(
+        "leakage-check",
+        help="Scan code/data for possible data leakage patterns",
+    )
+    p_lc.add_argument(
+        "--paths",
+        nargs="+",
+        required=True,
+        help="Files or directories to scan",
+    )
+    p_lc.add_argument(
+        "--extensions",
+        type=str,
+        default=".py,.csv",
+        help="Comma-separated extensions to include (default: .py,.csv)",
+    )
+    p_lc.add_argument(
+        "--allowlist",
+        type=str,
+        default="",
+        help="Comma-separated regex patterns to include (if empty, include all)",
+    )
+    p_lc.add_argument(
+        "--min-severity",
+        type=str,
+        choices=["low", "medium", "high"],
+        default="low",
+        help="Minimum severity to include in the report",
+    )
+    p_lc.add_argument(
+        "--out",
+        type=str,
+        help="Optional JSON report path",
+    )
+    p_lc.set_defaults(func=cmd_leakage_check)
+
+    # range-core-sweep
+    p_cs = subparsers.add_parser(
+        "range-core-sweep",
+        help="Grid sweep for core_v4 parameters",
+    )
+    p_cs.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+        help="List of tickers or 'all'",
+    )
+    p_cs.add_argument(
+        "--interval",
+        type=str,
+        default="30min",
+        help="Timeframe, e.g. 10min, 30min, 1h",
+    )
+    p_cs.add_argument(
+        "--equity0",
+        type=float,
+        default=1_000_000.0,
+        help="Initial equity",
+    )
+    p_cs.add_argument(
+        "--config-range",
+        type=str,
+        default="app2/range/config.json",
+        help="Path to range-specific config JSON",
+    )
+    p_cs.add_argument(
+        "--grid",
+        type=str,
+        default="",
+        help="Optional JSON file with grid overrides",
+    )
+    p_cs.add_argument(
+        "--max-combos",
+        type=int,
+        default=None,
+        help="Optional cap on number of combinations",
+    )
+    p_cs.add_argument(
+        "--out",
+        type=str,
+        required=True,
+        help="Output CSV path for sweep results",
+    )
+    p_cs.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
+    )
+    p_cs.set_defaults(func=cmd_range_core_sweep)
 
 
     # range-analyze
@@ -516,6 +888,12 @@ def main():
         type=str,
         help="Optional path for summary CSV; if not set, a default will be used under out-prefix-root",
     )
+    p_batch.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
+    )
     p_batch.set_defaults(func=cmd_range_batch)
 
     # range-summary
@@ -600,6 +978,12 @@ def main():
         type=str,
         required=True,
         help="Префикс выходных файлов в out/, напр. 'out/range/sweep_rangeV2'",
+    )
+    p_rfs.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
     )
     p_rfs.set_defaults(func=cmd_range_feature_sweep)
 
@@ -687,6 +1071,12 @@ def main():
         "--out",
         type=str,
         help="Optional JSON summary path",
+    )
+    p_pd.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
     )
     p_pd.set_defaults(func=cmd_process_data)
 
@@ -782,6 +1172,12 @@ def main():
         type=str,
         help="Optional CSV path to save regime segments",
     )
+    p_dr.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
+    )
     p_dr.set_defaults(func=cmd_detect_regime)
 
     # analyze-trades
@@ -830,6 +1226,12 @@ def main():
         type=str,
         choices=["conservative", "aggressive"],
         help="Имя профиля из секции 'profiles' в config.json",
+    )
+    p_an.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of processes (0/<=0 = auto)",
     )
     p_an.set_defaults(func=cmd_analyze_trades)
 

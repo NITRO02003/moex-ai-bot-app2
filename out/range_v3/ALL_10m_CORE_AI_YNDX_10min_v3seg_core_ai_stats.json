@@ -1,0 +1,21 @@
+{
+  "symbol": "YNDX",
+  "trades": 61,
+  "total_pnl": -53023.51975612167,
+  "total_return": -0.05302351975612167,
+  "win_rate": 0.39344262295081966,
+  "gross_profit": 132282.35297874932,
+  "gross_loss": 185305.872734871,
+  "pf": 0.7138594747507769,
+  "max_drawdown": -0.09181544624658818,
+  "equity0": 1000000.0,
+  "equity_final": 946976.4802438783,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null,
+  "entry_ai_mode": "top_pct",
+  "entry_ai_threshold": 0.5425465591890859,
+  "entry_ai_top_pct": 0.3,
+  "entry_ai_signal_bars": 318,
+  "entry_ai_allowed": 96,
+  "entry_ai_blocked": 222
+}

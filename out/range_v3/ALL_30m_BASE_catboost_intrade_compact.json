@@ -1,0 +1,688 @@
+{
+  "params": {
+    "iterations": 500,
+    "depth": 5,
+    "learning_rate": 0.05,
+    "l2_leaf_reg": 5.0,
+    "seed": 42,
+    "feature_set": "compact",
+    "test_size": 0.0,
+    "split_mode": "per_symbol",
+    "include": [],
+    "exclude": [],
+    "task_type": "CPU",
+    "devices": ""
+  },
+  "intrade": {
+    "rows": 14563,
+    "target": "y_exit",
+    "target_rate": 0.20057680422989768,
+    "train_rows": 13378,
+    "test_rows": 1185,
+    "features": [
+      "v3_signal",
+      "band_width_pct",
+      "range_vs_atr",
+      "atr_14_pct",
+      "dist_from_ma",
+      "band_pos",
+      "edge_proximity",
+      "z_ma",
+      "hour",
+      "day_of_week"
+    ],
+    "pos_weight": 4.20342279268767,
+    "train_metrics": {
+      "accuracy": 0.8451188518463149,
+      "precision": 0.5637618195757731,
+      "recall": 0.8580318942045897,
+      "f1": 0.6804441702652684,
+      "auc": 0.5882848811168209,
+      "threshold": 0.7
+    },
+    "test_metrics": {
+      "accuracy": 0.8455696202531645,
+      "precision": 0.7287671232876712,
+      "recall": 0.76,
+      "f1": 0.744055944055944,
+      "auc": 0.4861591103507271,
+      "threshold": 0.7
+    },
+    "per_symbol_test": {
+      "CHMF": {
+        "accuracy": 0.9921875,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "auc": null,
+        "n": 128,
+        "target_rate": 0.0,
+        "threshold": 0.7
+      },
+      "GAZP": {
+        "accuracy": 0.8571428571428571,
+        "precision": 0.8,
+        "recall": 0.75,
+        "f1": 0.7741935483870969,
+        "auc": 0.3352272727272727,
+        "n": 49,
+        "target_rate": 0.32653061224489793,
+        "threshold": 0.7
+      },
+      "GMKN": {
+        "accuracy": 0.7346938775510204,
+        "precision": 0.6666666666666666,
+        "recall": 0.9166666666666666,
+        "f1": 0.7719298245614035,
+        "auc": 0.27666666666666667,
+        "n": 49,
+        "target_rate": 0.4897959183673469,
+        "threshold": 0.7
+      },
+      "LKOH": {
+        "accuracy": 0.8571428571428571,
+        "precision": 0.8571428571428571,
+        "recall": 0.9375,
+        "f1": 0.8955223880597014,
+        "auc": 0.3088235294117647,
+        "n": 49,
+        "target_rate": 0.6530612244897959,
+        "threshold": 0.7
+      },
+      "MGNT": {
+        "accuracy": 0.8367346938775511,
+        "precision": 0.7222222222222222,
+        "recall": 0.8125,
+        "f1": 0.7647058823529411,
+        "auc": 0.6647727272727273,
+        "n": 49,
+        "target_rate": 0.32653061224489793,
+        "threshold": 0.7
+      },
+      "MTSS": {
+        "accuracy": 0.7755102040816326,
+        "precision": 0.9130434782608695,
+        "recall": 0.7,
+        "f1": 0.7924528301886793,
+        "auc": 0.8368421052631579,
+        "n": 49,
+        "target_rate": 0.6122448979591837,
+        "threshold": 0.7
+      },
+      "NLMK": {
+        "accuracy": 0.8979591836734694,
+        "precision": 0.7894736842105263,
+        "recall": 0.9375,
+        "f1": 0.8571428571428572,
+        "auc": 0.11553030303030302,
+        "n": 49,
+        "target_rate": 0.32653061224489793,
+        "threshold": 0.7
+      },
+      "NVTK": {
+        "accuracy": 0.9555555555555556,
+        "precision": 0.9375,
+        "recall": 0.75,
+        "f1": 0.8333333333333334,
+        "auc": 0.02217391304347826,
+        "n": 135,
+        "target_rate": 0.14814814814814814,
+        "threshold": 0.7
+      },
+      "OZON": {
+        "accuracy": 0.7551020408163265,
+        "precision": 0.8846153846153846,
+        "recall": 0.71875,
+        "f1": 0.7931034482758621,
+        "auc": 0.35661764705882354,
+        "n": 49,
+        "target_rate": 0.6530612244897959,
+        "threshold": 0.7
+      },
+      "PIKK": {
+        "accuracy": 0.8571428571428571,
+        "precision": 0.8518518518518519,
+        "recall": 0.8846153846153846,
+        "f1": 0.8679245283018868,
+        "auc": 0.18227424749163879,
+        "n": 49,
+        "target_rate": 0.5306122448979592,
+        "threshold": 0.7
+      },
+      "PLZL": {
+        "accuracy": 0.4897959183673469,
+        "precision": 0.875,
+        "recall": 0.22580645161290322,
+        "f1": 0.358974358974359,
+        "auc": 0.7258064516129032,
+        "n": 49,
+        "target_rate": 0.6326530612244898,
+        "threshold": 0.7
+      },
+      "ROSN": {
+        "accuracy": 0.9361702127659575,
+        "precision": 0.125,
+        "recall": 0.3333333333333333,
+        "f1": 0.18181818181818182,
+        "auc": 0.014492753623188406,
+        "n": 141,
+        "target_rate": 0.02127659574468085,
+        "threshold": 0.7
+      },
+      "SBER": {
+        "accuracy": 0.8571428571428571,
+        "precision": 0.8484848484848485,
+        "recall": 0.9333333333333333,
+        "f1": 0.888888888888889,
+        "auc": 0.22280701754385965,
+        "n": 49,
+        "target_rate": 0.6122448979591837,
+        "threshold": 0.7
+      },
+      "SNGS": {
+        "accuracy": 0.673469387755102,
+        "precision": 0.6923076923076923,
+        "recall": 0.6923076923076923,
+        "f1": 0.6923076923076923,
+        "auc": 0.4816053511705686,
+        "n": 49,
+        "target_rate": 0.5306122448979592,
+        "threshold": 0.7
+      },
+      "TATN": {
+        "accuracy": 0.5918367346938775,
+        "precision": 0.47058823529411764,
+        "recall": 0.8888888888888888,
+        "f1": 0.6153846153846153,
+        "auc": 0.2956989247311828,
+        "n": 49,
+        "target_rate": 0.3673469387755102,
+        "threshold": 0.7
+      },
+      "VKCO": {
+        "accuracy": 0.9097222222222222,
+        "precision": 0.375,
+        "recall": 0.2727272727272727,
+        "f1": 0.3157894736842105,
+        "auc": 0.016404647983595352,
+        "n": 144,
+        "target_rate": 0.0763888888888889,
+        "threshold": 0.7
+      },
+      "YNDX": {
+        "accuracy": 0.673469387755102,
+        "precision": 0.5428571428571428,
+        "recall": 1.0,
+        "f1": 0.7037037037037037,
+        "auc": 0.14736842105263157,
+        "n": 49,
+        "target_rate": 0.3877551020408163,
+        "threshold": 0.7
+      }
+    },
+    "per_symbol_full": {
+      "CHMF": {
+        "accuracy": 0.8805970149253731,
+        "precision": 0.463768115942029,
+        "recall": 0.837696335078534,
+        "f1": 0.5970149253731344,
+        "auc": 0.35654838563542346,
+        "n": 1809,
+        "target_rate": 0.10558319513543395,
+        "threshold": 0.7
+      },
+      "GAZP": {
+        "accuracy": 0.8806634304207119,
+        "precision": 0.5403377110694184,
+        "recall": 0.8520710059171598,
+        "f1": 0.661308840413318,
+        "auc": 0.33843436500058227,
+        "n": 2472,
+        "target_rate": 0.13673139158576053,
+        "threshold": 0.7
+      },
+      "GMKN": {
+        "accuracy": 0.8577235772357723,
+        "precision": 0.6228070175438597,
+        "recall": 0.8819875776397516,
+        "f1": 0.7300771208226221,
+        "auc": 0.5216960719937135,
+        "n": 738,
+        "target_rate": 0.2181571815718157,
+        "threshold": 0.7
+      },
+      "LKOH": {
+        "accuracy": 0.8095238095238095,
+        "precision": 0.6231343283582089,
+        "recall": 0.9175824175824175,
+        "f1": 0.7422222222222223,
+        "auc": 0.5677484108397457,
+        "n": 609,
+        "target_rate": 0.2988505747126437,
+        "threshold": 0.7
+      },
+      "MGNT": {
+        "accuracy": 0.7689015691868759,
+        "precision": 0.48134328358208955,
+        "recall": 0.8486842105263158,
+        "f1": 0.6142857142857142,
+        "auc": 0.5340691208896559,
+        "n": 701,
+        "target_rate": 0.21683309557774608,
+        "threshold": 0.7
+      },
+      "MTSS": {
+        "accuracy": 0.8496376811594203,
+        "precision": 0.6158940397350994,
+        "recall": 0.788135593220339,
+        "f1": 0.6914498141263942,
+        "auc": 0.5575451066156369,
+        "n": 552,
+        "target_rate": 0.213768115942029,
+        "threshold": 0.7
+      },
+      "NLMK": {
+        "accuracy": 0.8780012978585334,
+        "precision": 0.5518207282913166,
+        "recall": 0.8755555555555555,
+        "f1": 0.6769759450171822,
+        "auc": 0.45127321850726104,
+        "n": 1541,
+        "target_rate": 0.14600908500973395,
+        "threshold": 0.7
+      },
+      "NVTK": {
+        "accuracy": 0.7792,
+        "precision": 0.6233333333333333,
+        "recall": 0.8820754716981132,
+        "f1": 0.7304687499999999,
+        "auc": 0.4762209328886655,
+        "n": 625,
+        "target_rate": 0.3392,
+        "threshold": 0.7
+      },
+      "OZON": {
+        "accuracy": 0.8877551020408163,
+        "precision": 0.9186046511627907,
+        "recall": 0.8404255319148937,
+        "f1": 0.8777777777777779,
+        "auc": 0.6973299958281185,
+        "n": 196,
+        "target_rate": 0.47959183673469385,
+        "threshold": 0.7
+      },
+      "PIKK": {
+        "accuracy": 0.8445684843280378,
+        "precision": 0.45884413309982486,
+        "recall": 0.8317460317460318,
+        "f1": 0.5914221218961625,
+        "auc": 0.4490219258838921,
+        "n": 2329,
+        "target_rate": 0.1352511807642765,
+        "threshold": 0.7
+      },
+      "PLZL": {
+        "accuracy": 0.7210884353741497,
+        "precision": 0.8591549295774648,
+        "recall": 0.6630434782608695,
+        "f1": 0.7484662576687117,
+        "auc": 0.5154150197628459,
+        "n": 147,
+        "target_rate": 0.6258503401360545,
+        "threshold": 0.7
+      },
+      "ROSN": {
+        "accuracy": 0.7720588235294118,
+        "precision": 0.5567375886524822,
+        "recall": 0.839572192513369,
+        "f1": 0.6695095948827292,
+        "auc": 0.36990595611285265,
+        "n": 680,
+        "target_rate": 0.275,
+        "threshold": 0.7
+      },
+      "SBER": {
+        "accuracy": 0.8408163265306122,
+        "precision": 0.8029197080291971,
+        "recall": 0.9016393442622951,
+        "f1": 0.8494208494208494,
+        "auc": 0.529188324670132,
+        "n": 245,
+        "target_rate": 0.49795918367346936,
+        "threshold": 0.7
+      },
+      "SNGS": {
+        "accuracy": 0.841991341991342,
+        "precision": 0.6188925081433225,
+        "recall": 0.867579908675799,
+        "f1": 0.7224334600760456,
+        "auc": 0.6173580750671978,
+        "n": 924,
+        "target_rate": 0.237012987012987,
+        "threshold": 0.7
+      },
+      "TATN": {
+        "accuracy": 0.7734204793028322,
+        "precision": 0.5207100591715976,
+        "recall": 0.7927927927927928,
+        "f1": 0.6285714285714287,
+        "auc": 0.4763125194159677,
+        "n": 459,
+        "target_rate": 0.24183006535947713,
+        "threshold": 0.7
+      },
+      "VKCO": {
+        "accuracy": 0.8611825192802056,
+        "precision": 0.8421052631578947,
+        "recall": 0.7724137931034483,
+        "f1": 0.8057553956834532,
+        "auc": 0.2203504804974562,
+        "n": 389,
+        "target_rate": 0.37275064267352187,
+        "threshold": 0.7
+      },
+      "YNDX": {
+        "accuracy": 0.8027210884353742,
+        "precision": 0.6944444444444444,
+        "recall": 0.8771929824561403,
+        "f1": 0.7751937984496124,
+        "auc": 0.605458089668616,
+        "n": 147,
+        "target_rate": 0.3877551020408163,
+        "threshold": 0.7
+      }
+    },
+    "per_symbol_trade_test": {
+      "CHMF": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "GAZP": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "GMKN": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "LKOH": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "MGNT": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "MTSS": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "NLMK": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "NVTK": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "OZON": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "PIKK": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "PLZL": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "ROSN": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "SBER": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "SNGS": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "TATN": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "VKCO": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      },
+      "YNDX": {
+        "trades": 1,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": 0.0,
+        "total_return": 0.0,
+        "max_drawdown": 0.0
+      }
+    },
+    "per_symbol_trade_full": {
+      "CHMF": {
+        "trades": 23,
+        "pf": 1.3353154638708815,
+        "win_rate": 0.5217391304347826,
+        "calmar": 1.2697150287779342,
+        "total_return": 0.03943796100948971,
+        "max_drawdown": -0.031060482167756698
+      },
+      "GAZP": {
+        "trades": 34,
+        "pf": 0.40169672741649093,
+        "win_rate": 0.5,
+        "calmar": -0.9833385571436808,
+        "total_return": -0.22696430381399435,
+        "max_drawdown": -0.23080993027799213
+      },
+      "GMKN": {
+        "trades": 10,
+        "pf": 0.39165981004008193,
+        "win_rate": 0.4,
+        "calmar": -0.7645817039092044,
+        "total_return": -0.026600126180452044,
+        "max_drawdown": -0.03479042991017067
+      },
+      "LKOH": {
+        "trades": 11,
+        "pf": 0.6226105419821271,
+        "win_rate": 0.45454545454545453,
+        "calmar": -1.0,
+        "total_return": -0.023247486184883037,
+        "max_drawdown": -0.023247486184883037
+      },
+      "MGNT": {
+        "trades": 13,
+        "pf": 0.6033199804961181,
+        "win_rate": 0.5384615384615384,
+        "calmar": -0.7806231857500301,
+        "total_return": -0.05223093894899311,
+        "max_drawdown": -0.0669092846618553
+      },
+      "MTSS": {
+        "trades": 7,
+        "pf": 0.2511806182856799,
+        "win_rate": 0.2857142857142857,
+        "calmar": -0.829026570332832,
+        "total_return": -0.02342168843027992,
+        "max_drawdown": -0.02825203590383929
+      },
+      "NLMK": {
+        "trades": 21,
+        "pf": 0.7876804894223647,
+        "win_rate": 0.42857142857142855,
+        "calmar": -0.48071202694297327,
+        "total_return": -0.01824816736760404,
+        "max_drawdown": -0.03796070483955005
+      },
+      "NVTK": {
+        "trades": 11,
+        "pf": 0.3875422802856397,
+        "win_rate": 0.45454545454545453,
+        "calmar": -1.0,
+        "total_return": -0.07299830723231737,
+        "max_drawdown": -0.07299830723231737
+      },
+      "OZON": {
+        "trades": 4,
+        "pf": 0.012439549353243425,
+        "win_rate": 0.25,
+        "calmar": -1.0,
+        "total_return": -0.11137360952780384,
+        "max_drawdown": -0.11137360952780384
+      },
+      "PIKK": {
+        "trades": 37,
+        "pf": 1.4352257017140493,
+        "win_rate": 0.5945945945945946,
+        "calmar": 1.8582372540627825,
+        "total_return": 0.08888988952725052,
+        "max_drawdown": -0.047835597598156476
+      },
+      "PLZL": {
+        "trades": 3,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": -1.0,
+        "total_return": -0.02659205304786405,
+        "max_drawdown": -0.02659205304786405
+      },
+      "ROSN": {
+        "trades": 12,
+        "pf": 0.5638324895690295,
+        "win_rate": 0.4166666666666667,
+        "calmar": -1.0,
+        "total_return": -0.054335990159899095,
+        "max_drawdown": -0.054335990159899095
+      },
+      "SBER": {
+        "trades": 5,
+        "pf": 0.010565933251336519,
+        "win_rate": 0.2,
+        "calmar": -0.9743528821877937,
+        "total_return": -0.017036447585191294,
+        "max_drawdown": -0.017484884477313778
+      },
+      "SNGS": {
+        "trades": 15,
+        "pf": 0.5959574840089776,
+        "win_rate": 0.5333333333333333,
+        "calmar": -0.9144542529160314,
+        "total_return": -0.05694309411427578,
+        "max_drawdown": -0.062270030384455444
+      },
+      "TATN": {
+        "trades": 8,
+        "pf": 0.7198974513033798,
+        "win_rate": 0.375,
+        "calmar": -0.3555300661472252,
+        "total_return": -0.009415168288376186,
+        "max_drawdown": -0.02648205928237124
+      },
+      "VKCO": {
+        "trades": 6,
+        "pf": 0.02462951677573759,
+        "win_rate": 0.3333333333333333,
+        "calmar": -1.0,
+        "total_return": -0.14126652883835966,
+        "max_drawdown": -0.14126652883835966
+      },
+      "YNDX": {
+        "trades": 3,
+        "pf": 0.0,
+        "win_rate": 0.0,
+        "calmar": -1.0,
+        "total_return": -0.040665743518647046,
+        "max_drawdown": -0.040665743518647046
+      }
+    },
+    "trade_metrics_source": {
+      "pnl_col": "trade_pnl_abs",
+      "equity0": 1000000.0
+    },
+    "feature_config": {
+      "feature_set": "compact",
+      "include": [],
+      "exclude": [
+        "y_exit",
+        "trade_id",
+        "trade_pnl_abs",
+        "trade_pnl_rel",
+        "trade_bars_in_trade",
+        "exit_price"
+      ]
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "rolling_diag": {
+    "roll_L_notna_frac": 0.5548251748251748,
+    "valid_box_frac": 0.03664335664335664,
+    "mask_height_frac": 0.08671328671328671,
+    "mask_slope_frac": 0.07715617715617716,
+    "mask_vol_frac": 0.2691841491841492,
+    "mask_deadzone_frac": 0.2806526806526807,
+    "atr_notna_frac": 0.280979020979021,
+    "confirm_mask_frac": 0.08592074592074592,
+    "recent_breakout_frac": 0.18475524475524477,
+    "signals_count": 134
+  },
+  "params_snapshot": {
+    "range_window_bars": 50,
+    "min_range_height_pct": 0.002,
+    "max_range_height_pct": 0.02,
+    "entry_zone_alpha": 0.2,
+    "slope_k": 0.0005,
+    "atr_window": 50,
+    "atr_pct_min": 0.001,
+    "atr_pct_max": 0.02,
+    "sl_pct": 0.01,
+    "tp_pct": 0.015,
+    "max_bars_in_trade": 48,
+    "risk_pct_per_trade": 0.007
+  },
+  "geometry": {
+    "valid_frac": 0.7197202797202797,
+    "valid_bars": 15438,
+    "total_bars": 21450,
+    "class_counts": {
+      "A": 15438,
+      "INVALID": 6012
+    },
+    "h_pct_mean": 0.034736388066573136,
+    "h_pct_p25": 0.017732971433145683,
+    "h_pct_p50": 0.026940150077788,
+    "h_pct_p75": 0.04179166159880315
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "symbol": "NVTK",
+  "trades": 146,
+  "total_pnl": 36683.254604348185,
+  "total_return": 0.03668325460434819,
+  "win_rate": 0.5205479452054794,
+  "gross_profit": 419079.836014298,
+  "gross_loss": 382396.58140994987,
+  "pf": 1.0959298706831841,
+  "max_drawdown": -0.06571885405222687,
+  "equity0": 1000000.0,
+  "equity_final": 1036683.2546043481,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null,
+  "entry_ai_mode": "top_pct",
+  "entry_ai_threshold": 0.546210528168011,
+  "entry_ai_top_pct": 0.3,
+  "entry_ai_signal_bars": 865,
+  "entry_ai_allowed": 260,
+  "entry_ai_blocked": 605
+}

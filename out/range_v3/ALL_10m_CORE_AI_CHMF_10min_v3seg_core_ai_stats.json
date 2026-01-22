@@ -1,0 +1,21 @@
+{
+  "symbol": "CHMF",
+  "trades": 117,
+  "total_pnl": 11297.600971357107,
+  "total_return": 0.011297600971357107,
+  "win_rate": 0.5128205128205128,
+  "gross_profit": 297242.70810593246,
+  "gross_loss": 285945.1071345754,
+  "pf": 1.0395096845145178,
+  "max_drawdown": -0.06499220879985552,
+  "equity0": 1000000.0,
+  "equity_final": 1011297.6009713564,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null,
+  "entry_ai_mode": "top_pct",
+  "entry_ai_threshold": 0.5515975062160404,
+  "entry_ai_top_pct": 0.3,
+  "entry_ai_signal_bars": 792,
+  "entry_ai_allowed": 238,
+  "entry_ai_blocked": 554
+}

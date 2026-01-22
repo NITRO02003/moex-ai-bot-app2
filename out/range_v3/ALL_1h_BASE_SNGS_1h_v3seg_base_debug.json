@@ -1,0 +1,8 @@
+{
+  "rolling_diag": {
+    "roll_L_notna_frac": 0.6240386335181541,
+    "valid_box_frac": 0.134680736898587,
+    "mask_height_frac": 0.134680736898587,
+    "signals_count": 1049
+  }
+}

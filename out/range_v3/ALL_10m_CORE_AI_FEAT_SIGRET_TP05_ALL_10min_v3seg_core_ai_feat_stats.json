@@ -1,0 +1,26 @@
+{
+  "symbols": [
+    "SBER",
+    "GAZP",
+    "LKOH",
+    "GMKN",
+    "YNDX",
+    "ROSN",
+    "NVTK",
+    "NLMK",
+    "MTSS",
+    "TATN",
+    "CHMF",
+    "SNGS",
+    "PIKK",
+    "PLZL",
+    "MGNT",
+    "VKCO",
+    "OZON"
+  ],
+  "total_pnl": 214034.6100089645,
+  "total_return": 0.012590271176997911,
+  "win_rate": 0.56,
+  "pf": 1.298383518540458,
+  "max_drawdown": -1.6501050931860892
+}

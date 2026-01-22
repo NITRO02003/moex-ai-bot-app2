@@ -280,6 +280,14 @@ python -m app2.cli range-v3-backtest \
 
 Range V3 готов к сбору датасетов (Фаза 1) и AI-фильтрации.
 
+**Фиксация завершения (2026-01-19):**
+- выполнены прогоны baseline:
+  - `out/range_v3/BASE_SBER_30m_*`
+  - `out/range_v3/ALL_30m_BASE_*`
+- добавлен и выполнен `range-debug-segments`:
+  - `out/range_v3/SEGMENTS_DEBUG_SBER_30m_2024-01-15_*`
+- READMEv4.8 будет обновлён в отдельной итерации (по лимиту контекста).
+
 ### 2.8. Шаг 0.G — Переосмысление Range V3: Offline vs Rolling
 
 По результатам диагностики стало ясно, что текущая реализация Range V3:

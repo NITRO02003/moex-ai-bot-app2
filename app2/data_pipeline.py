@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 
 import pandas as pd
 
+from .parallel import parallel_map
 
 def _interval_to_freq(interval: str) -> str:
     """
@@ -199,11 +200,19 @@ def _aggregate_symbol(
     return summary
 
 
+def _aggregate_symbol_task(
+    args: tuple[str, List[str], str, str],
+) -> tuple[str, Dict[str, Dict[str, int]]]:
+    symbol, intervals, input_dir, output_dir = args
+    return symbol, _aggregate_symbol(symbol, intervals, input_dir, output_dir)
+
+
 def run_data_processing(
     symbols: List[str],
     intervals: List[str],
     input_dir: str,
     output_dir: str,
+    n_jobs: int | None = None,
     out: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -221,9 +230,8 @@ def run_data_processing(
     )
 
     summary: Dict[str, Any] = {}
-
-    for sym in symbols:
-        sym_summary = _aggregate_symbol(sym, intervals, input_dir, output_dir)
+    tasks = [(sym, intervals, input_dir, output_dir) for sym in symbols]
+    for sym, sym_summary in parallel_map(tasks, _aggregate_symbol_task, n_jobs=n_jobs):
         if sym_summary:
             summary[sym] = sym_summary
 
@@ -255,5 +263,6 @@ def main(args) -> Dict[str, Any]:
         intervals=args.intervals,
         input_dir=args.input_dir,
         output_dir=args.output_dir,
+        n_jobs=getattr(args, "n_jobs", None),
         out=args.out,
     )

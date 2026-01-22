@@ -1,0 +1,15 @@
+{
+  "symbol": "GMKN",
+  "trades": 361,
+  "total_pnl": -18017.551984363494,
+  "total_return": -0.018017551984363493,
+  "win_rate": 0.5207756232686981,
+  "gross_profit": 1064305.1886300428,
+  "gross_loss": 1082322.7406144063,
+  "pf": 0.9833528842107342,
+  "max_drawdown": -0.09581239958286798,
+  "equity0": 1000000.0,
+  "equity_final": 981982.4480156364,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

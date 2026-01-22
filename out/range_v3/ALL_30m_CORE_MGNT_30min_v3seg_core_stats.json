@@ -1,0 +1,15 @@
+{
+  "symbol": "MGNT",
+  "trades": 382,
+  "total_pnl": -270481.83670065866,
+  "total_return": -0.2704818367006587,
+  "win_rate": 0.4973821989528796,
+  "gross_profit": 724911.3250963169,
+  "gross_loss": 995393.1617969755,
+  "pf": 0.728266330248482,
+  "max_drawdown": -0.29674177741503965,
+  "equity0": 1000000.0,
+  "equity_final": 729518.163299342,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

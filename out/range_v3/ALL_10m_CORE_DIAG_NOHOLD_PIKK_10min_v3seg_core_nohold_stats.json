@@ -1,0 +1,15 @@
+{
+  "symbol": "PIKK",
+  "trades": 375,
+  "total_pnl": -85604.93453578772,
+  "total_return": -0.08560493453578771,
+  "win_rate": 0.4693333333333333,
+  "gross_profit": 912901.8339613634,
+  "gross_loss": 998506.7684971511,
+  "pf": 0.9142670463169404,
+  "max_drawdown": -0.1740194004373513,
+  "equity0": 1000000.0,
+  "equity_final": 914395.0654642109,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

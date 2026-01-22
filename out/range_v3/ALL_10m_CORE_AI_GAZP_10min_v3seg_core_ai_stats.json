@@ -1,0 +1,21 @@
+{
+  "symbol": "GAZP",
+  "trades": 96,
+  "total_pnl": -911.0009975923882,
+  "total_return": -0.0009110009975923882,
+  "win_rate": 0.5,
+  "gross_profit": 279303.4353902242,
+  "gross_loss": 280214.4363878166,
+  "pf": 0.9967489148334543,
+  "max_drawdown": -0.07065614445730874,
+  "equity0": 1000000.0,
+  "equity_final": 999088.9990024073,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null,
+  "entry_ai_mode": "top_pct",
+  "entry_ai_threshold": 0.5324369119676318,
+  "entry_ai_top_pct": 0.3,
+  "entry_ai_signal_bars": 548,
+  "entry_ai_allowed": 165,
+  "entry_ai_blocked": 383
+}

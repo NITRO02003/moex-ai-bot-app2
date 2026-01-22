@@ -1,0 +1,21 @@
+{
+  "symbol": "SNGS",
+  "trades": 121,
+  "total_pnl": 244300.66360283009,
+  "total_return": 0.2443006636028301,
+  "win_rate": 0.6033057851239669,
+  "gross_profit": 488883.73981716885,
+  "gross_loss": 244583.07621433877,
+  "pf": 1.9988453305278522,
+  "max_drawdown": -0.043383212979924354,
+  "equity0": 1000000.0,
+  "equity_final": 1244300.6636028301,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null,
+  "entry_ai_mode": "top_pct",
+  "entry_ai_threshold": 0.5262317956340715,
+  "entry_ai_top_pct": 0.3,
+  "entry_ai_signal_bars": 656,
+  "entry_ai_allowed": 197,
+  "entry_ai_blocked": 459
+}

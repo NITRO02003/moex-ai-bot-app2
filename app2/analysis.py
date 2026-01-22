@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from .config import load_config
+from .parallel import parallel_map
 from .utils import load_symbols
 from .rule_core import RuleBtParams, run_rule_symbol
 from .rule_strategies import (
@@ -183,6 +184,137 @@ def _plot_hourly_pnl(trades: pd.DataFrame, title: str, out_path: Path) -> None:
     plt.close(fig)
 
 
+# ---------- worker ----------
+
+
+def _analyze_symbol_task(
+    args: tuple[
+        str,
+        str,
+        float,
+        str,
+        str,
+        Dict[str, Any],
+        Dict[str, Any],
+        Dict[str, Any],
+        Path,
+    ],
+) -> tuple[str, Dict[str, Any], Dict[str, Any]] | None:
+    (
+        sym,
+        interval,
+        equity0,
+        strategy,
+        profile_tag,
+        strat_cfg,
+        regime_cfg,
+        bt_cfg,
+        out_path,
+    ) = args
+
+    df = _load_prices(sym, interval=interval)
+    if df is None:
+        return None
+
+    print(f"[analyze-trades] {sym}: run strategy={strategy}, profile={profile_tag}")
+
+    if strategy == "trend":
+        s_params = _build_trend_params(strat_cfg)
+        side = generate_trend_signals(df, s_params)
+        df2 = df.copy()
+        df2["signal"] = side
+    elif strategy == "meanrev":
+        s_params = _build_meanrev_params(strat_cfg)
+        side = generate_meanrev_signals(df, s_params)
+        df2 = df.copy()
+        df2["signal"] = side
+    elif strategy == "meanrev_v2":
+        s_params = _build_meanrev_v2_params(strat_cfg)
+        side, z_score, regime = generate_meanrev_v2_signals(
+            df,
+            s_params,
+            regime_params=regime_cfg,
+        )
+        df2 = df.copy()
+        df2["signal"] = side
+        df2["z_score"] = z_score
+        df2["regime"] = regime
+    elif strategy == "breakout":
+        s_params = _build_breakout_params(strat_cfg)
+        side = generate_breakout_signals(df, s_params)
+        df2 = df.copy()
+        df2["signal"] = side
+    else:
+        raise NotImplementedError(f"strategy '{strategy}' is not supported")
+
+    bt_params = RuleBtParams(**bt_cfg)
+    res = run_rule_symbol(
+        df2,
+        bt_params,
+        equity0=equity0,
+        collect_bar_stats=True,
+        collect_trades=True,
+    )
+
+    bar_stats = res.get("bar_stats")
+    trades = res.get("trades")
+    metrics = res.get("metrics", {})
+    if bar_stats is None or trades is None:
+        print(f"[analyze-trades] {sym}: no bar_stats or trades, skip")
+        return None
+
+    out_dir = out_path.parent
+    base_name = f"{out_path.name}_{profile_tag}_{sym}_{strategy}_{interval}"
+
+    bars_file = out_dir / f"{base_name}_bars.csv"
+    trades_file = out_dir / f"{base_name}_trades.csv"
+
+    bar_stats.to_csv(bars_file, index=False)
+    trades.to_csv(trades_file, index=False)
+
+    print(
+        f"[analyze-trades] {sym}: bars={len(bar_stats)}, "
+        f"trades={len(trades)}, total_return={metrics.get('total_return', 0):.4f}"
+    )
+
+    _plot_equity(
+        bar_stats,
+        title=f"{sym} {strategy} ({profile_tag}) equity",
+        out_path=out_dir / f"{base_name}_equity.png",
+    )
+    _plot_pnl_dist(
+        trades,
+        title=f"{sym} ({profile_tag}) PnL dist",
+        out_path=out_dir / f"{base_name}_pnl_dist.png",
+    )
+    _plot_holdtime_dist(
+        trades,
+        title=f"{sym} ({profile_tag}) holdtime dist",
+        out_path=out_dir / f"{base_name}_holdtime.png",
+    )
+    _plot_hourly_pnl(
+        trades,
+        title=f"{sym} ({profile_tag}) hourly PnL",
+        out_path=out_dir / f"{base_name}_hourly_pnl.png",
+    )
+
+    row = {
+        "symbol": sym,
+        "profile": profile_tag,
+        "strategy": strategy,
+        "interval": interval,
+        **metrics,
+    }
+    details = {
+        "bars": len(bar_stats),
+        "trades": len(trades),
+        "metrics": metrics,
+        "bars_file": str(bars_file),
+        "trades_file": str(trades_file),
+    }
+    return sym, row, details
+
+
 # ---------- основная функция ----------
 
 
@@ -194,6 +326,7 @@ def run_analyze_trades(
     config_path: str,
     out_prefix: str,
     profile: Optional[str] = None,
+    n_jobs: int | None = None,
 ) -> Dict[str, Any]:
     """
     Анализ сделок и bar-логов для стратегии и набора тикеров с поддержкой профилей.
@@ -224,7 +357,6 @@ def run_analyze_trades(
     bt_cfg = dict(defaults.get("RuleBtParams", {}))
     if profile_cfg and "RuleBtParams" in profile_cfg:
         bt_cfg.update(profile_cfg["RuleBtParams"])
-    bt_params = RuleBtParams(**bt_cfg)
 
     # --- параметры режимов ---
     regime_cfg = dict(defaults.get("RegimeParams", {}))
@@ -267,112 +399,27 @@ def run_analyze_trades(
     summary_rows: List[Dict[str, Any]] = []
     summary: Dict[str, Any] = {}
 
-    for sym in symbols:
-        df = _load_prices(sym, interval=interval)
-        if df is None:
+    tasks = [
+        (
+            sym,
+            interval,
+            equity0,
+            strategy,
+            profile_info,
+            strat_cfg,
+            regime_cfg,
+            bt_cfg,
+            out_path,
+        )
+        for sym in symbols
+    ]
+    for result in parallel_map(tasks, _analyze_symbol_task, n_jobs=n_jobs):
+        if result is None:
             continue
-
-        print(f"[analyze-trades] {sym}: run strategy={strategy}, profile={profile_info}")
-
-        # генерируем сигналы
-        if strategy == "trend":
-            s_params = _build_trend_params(strat_cfg)
-            side = generate_trend_signals(df, s_params)
-            df2 = df.copy()
-            df2["signal"] = side
-        elif strategy == "meanrev":
-            s_params = _build_meanrev_params(strat_cfg)
-            side = generate_meanrev_signals(df, s_params)
-            df2 = df.copy()
-            df2["signal"] = side
-        elif strategy == "meanrev_v2":
-            s_params = _build_meanrev_v2_params(strat_cfg)
-            side, z_score, regime = generate_meanrev_v2_signals(
-                df,
-                s_params,
-                regime_params=regime_cfg,
-            )
-            df2 = df.copy()
-            df2["signal"] = side
-            df2["z_score"] = z_score
-            df2["regime"] = regime
-        elif strategy == "breakout":
-            s_params = _build_breakout_params(strat_cfg)
-            side = generate_breakout_signals(df, s_params)
-            df2 = df.copy()
-            df2["signal"] = side
-        else:
-            raise NotImplementedError(f"strategy '{strategy}' is not supported")
-
-        res = run_rule_symbol(
-            df2,
-            bt_params,
-            equity0=equity0,
-            collect_bar_stats=True,
-            collect_trades=True,
-        )
-
-        bar_stats = res.get("bar_stats")
-        trades = res.get("trades")
-        metrics = res.get("metrics", {})
-
-        if bar_stats is None or trades is None:
-            print(f"[analyze-trades] {sym}: no bar_stats or trades, skip")
-            continue
-
-        prof_tag = profile if profile is not None else "default"
-        base_name = f"{out_path.name}_{prof_tag}_{sym}_{strategy}_{interval}"
-
-        bars_file = out_dir / f"{base_name}_bars.csv"
-        trades_file = out_dir / f"{base_name}_trades.csv"
-
-        bar_stats.to_csv(bars_file, index=False)
-        trades.to_csv(trades_file, index=False)
-
-        print(
-            f"[analyze-trades] {sym}: bars={len(bar_stats)}, "
-            f"trades={len(trades)}, total_return={metrics.get('total_return', 0):.4f}"
-        )
-
-        # графики
-        _plot_equity(
-            bar_stats,
-            title=f"{sym} {strategy} ({prof_tag}) equity",
-            out_path=out_dir / f"{base_name}_equity.png",
-        )
-        _plot_pnl_dist(
-            trades,
-            title=f"{sym} ({prof_tag}) PnL dist",
-            out_path=out_dir / f"{base_name}_pnl_dist.png",
-        )
-        _plot_holdtime_dist(
-            trades,
-            title=f"{sym} ({prof_tag}) holdtime dist",
-            out_path=out_dir / f"{base_name}_holdtime.png",
-        )
-        _plot_hourly_pnl(
-            trades,
-            title=f"{sym} ({prof_tag}) hourly PnL",
-            out_path=out_dir / f"{base_name}_hourly_pnl.png",
-        )
-
-        row = {
-            "symbol": sym,
-            "profile": prof_tag,
-            "strategy": strategy,
-            "interval": interval,
-            **metrics,
-        }
+        sym, row, details = result
         summary_rows.append(row)
-
         summary.setdefault(sym, {})
-        summary[sym][prof_tag] = {
-            "bars": len(bar_stats),
-            "trades": len(trades),
-            "metrics": metrics,
-            "bars_file": str(bars_file),
-            "trades_file": str(trades_file),
-        }
+        summary[sym][row["profile"]] = details
 
     # сводный CSV
     if summary_rows:

@@ -1,0 +1,13 @@
+{
+  "symbol": "SBER",
+  "trades": 3,
+  "total_pnl": -50336.80726038803,
+  "total_return": -0.05033680726038803,
+  "win_rate": 0.0,
+  "gross_profit": 0.0,
+  "gross_loss": 50336.80726038803,
+  "pf": 0.0,
+  "max_drawdown": -0.05033680726038804,
+  "equity0": 1000000.0,
+  "equity_final": 949663.192739612
+}

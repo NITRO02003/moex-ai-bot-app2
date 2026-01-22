@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from ..config import load_config
+from ..parallel import parallel_map
 from ..rule_backtest import _load_prices_for_backtest
 from ..rule_core import RuleBtParams, run_rule_symbol
 from ..utils import load_symbols, save_json
@@ -38,6 +39,133 @@ def _count_entries(sig: Optional[pd.Series]) -> int:
     prev = s.shift(1).fillna(0)
     entries = (prev == 0) & (s != 0)
     return int(entries.sum())
+
+
+def _run_range_symbol_task(
+    args: tuple[
+        str,
+        str,
+        float,
+        RangeParams,
+        RuleBtParams,
+        str | None,
+        str | None,
+        str | None,
+        bool,
+        bool,
+    ],
+) -> tuple[str, Dict[str, Any] | None, pd.DataFrame, pd.DataFrame]:
+    (
+        sym,
+        interval,
+        equity0,
+        range_params,
+        bt_params,
+        regime_segments_path,
+        regime_filter,
+        profile_name,
+        save_trades,
+        save_snapshots,
+    ) = args
+
+    df = _load_prices_for_backtest(sym, interval=interval)
+    if df is None or df.empty:
+        print(f"[range-backtest] {sym}: no data for interval={interval}, skip")
+        return sym, None, pd.DataFrame(), pd.DataFrame()
+
+    if "datetime" not in df.columns:
+        print(f"[range-backtest] {sym}: no datetime column after load, skip")
+        return sym, None, pd.DataFrame(), pd.DataFrame()
+
+    df_sig = generate_range_signals(df, params=range_params, regime_mask=None)
+
+    bars_total = int(len(df_sig))
+    entries_raw = _count_entries(df_sig.get("signal")) if "signal" in df_sig.columns else 0
+
+    if regime_segments_path and regime_filter:
+        bars_in_regime = 0
+        entries_after_regime_filter = entries_raw
+        try:
+            seg_df = pd.read_csv(regime_segments_path)
+        except Exception as e:
+            print(
+                f"[range-backtest] {sym}: failed to read regime segments "
+                f"{regime_segments_path}: {e}"
+            )
+        else:
+            seg_sym = seg_df
+            if "symbol" in seg_sym.columns:
+                seg_sym = seg_sym[seg_sym["symbol"] == sym]
+            seg_sym = seg_sym[seg_sym["regime"] == regime_filter]
+
+            if not seg_sym.empty and "datetime" in df_sig.columns:
+                seg_sym = seg_sym.copy()
+                seg_sym["start_dt"] = pd.to_datetime(seg_sym["start_dt"], utc=True)
+                seg_sym["end_dt"] = pd.to_datetime(seg_sym["end_dt"], utc=True)
+
+                dt = pd.to_datetime(df_sig["datetime"], utc=True)
+                mask = pd.Series(False, index=df_sig.index)
+                for _, row in seg_sym.iterrows():
+                    mask |= (dt >= row["start_dt"]) & (dt <= row["end_dt"])
+
+                bars_in_regime = int(mask.sum())
+
+                if "signal" in df_sig.columns:
+                    df_sig.loc[~mask, "signal"] = 0
+                    entries_after_regime_filter = _count_entries(df_sig["signal"])
+            else:
+                bars_in_regime = 0
+                entries_after_regime_filter = 0
+    else:
+        bars_in_regime = bars_total
+        entries_after_regime_filter = entries_raw
+        regime_segments_path = None
+        regime_filter = None
+
+    bt_result = run_rule_symbol(
+        df_sig,
+        bt_params,
+        equity0=equity0,
+        collect_bar_stats=False,
+        collect_trades=True,
+    )
+
+    metrics = bt_result.get("metrics", {}) or {}
+    metrics["bars_total"] = bars_total
+    metrics["bars_in_regime"] = bars_in_regime
+    metrics["entries_raw"] = entries_raw
+    metrics["entries_after_regime_filter"] = entries_after_regime_filter
+    metrics["regime_filter"] = regime_filter
+    metrics["regime_segments_path"] = regime_segments_path
+    metrics["profile"] = profile_name
+
+    trades_out = pd.DataFrame()
+    snaps_out = pd.DataFrame()
+    trades_df = bt_result.get("trades")
+    if isinstance(trades_df, pd.DataFrame) and not trades_df.empty and save_trades:
+        trades_out = trades_to_frame(trades_df.to_dict("records"), symbol=sym)
+        if profile_name:
+            trades_out["profile"] = profile_name
+
+        if save_snapshots:
+            feats = add_basic_range_features(
+                df_sig,
+                ma_len=range_params.ma_len,
+                band_mult=range_params.band_mult,
+                atr_len=range_params.atr_len,
+            )
+            snaps = make_entry_snapshots(
+                features_df=feats,
+                trades_df=trades_out,
+                feature_cols=None,
+                label_cols=None,
+            )
+            if not snaps.empty:
+                snaps_out = snaps
+                if profile_name:
+                    snaps_out["profile"] = profile_name
+
+    return sym, metrics, trades_out, snaps_out
 
 
 def main(args) -> Dict[str, Any]:
@@ -107,109 +235,30 @@ def main(args) -> Dict[str, Any]:
     all_trades: List[pd.DataFrame] = []
     all_snapshots: List[pd.DataFrame] = []
 
-    for sym in symbols:
-        df = _load_prices_for_backtest(sym, interval=interval)
-        if df is None or df.empty:
-            print(f"[range-backtest] {sym}: no data for interval={interval}, skip")
-            continue
-
-        if "datetime" not in df.columns:
-            print(f"[range-backtest] {sym}: no datetime column after load, skip")
-            continue
-
-        # --- базовые сигналы без режимного фильтра ---
-        df_sig = generate_range_signals(df, params=range_params, regime_mask=None)
-
-        bars_total = int(len(df_sig))
-        entries_raw = _count_entries(df_sig.get("signal")) if "signal" in df_sig.columns else 0
-
-        # --- копия логики режимного фильтра из rule_backtest ---
-        if regime_segments_path and regime_filter:
-            bars_in_regime = 0
-            entries_after_regime_filter = entries_raw
-            try:
-                seg_df = pd.read_csv(regime_segments_path)
-            except Exception as e:
-                print(
-                    f"[range-backtest] {sym}: failed to read regime segments "
-                    f"{regime_segments_path}: {e}"
-                )
-            else:
-                seg_sym = seg_df
-                if "symbol" in seg_sym.columns:
-                    seg_sym = seg_sym[seg_sym["symbol"] == sym]
-                seg_sym = seg_sym[seg_sym["regime"] == regime_filter]
-
-                if not seg_sym.empty and "datetime" in df_sig.columns:
-                    seg_sym = seg_sym.copy()
-                    seg_sym["start_dt"] = pd.to_datetime(seg_sym["start_dt"], utc=True)
-                    seg_sym["end_dt"] = pd.to_datetime(seg_sym["end_dt"], utc=True)
-
-                    dt = pd.to_datetime(df_sig["datetime"], utc=True)
-                    mask = pd.Series(False, index=df_sig.index)
-                    for _, row in seg_sym.iterrows():
-                        mask |= (dt >= row["start_dt"]) & (dt <= row["end_dt"])
-
-                    bars_in_regime = int(mask.sum())
-
-                    if "signal" in df_sig.columns:
-                        df_sig.loc[~mask, "signal"] = 0
-                        entries_after_regime_filter = _count_entries(df_sig["signal"])
-                else:
-                    # нет подходящих сегментов под данный режим/тикер
-                    bars_in_regime = 0
-                    entries_after_regime_filter = 0
-        else:
-            # режимный фильтр не применялся
-            bars_in_regime = bars_total
-            entries_after_regime_filter = entries_raw
-            regime_segments_path = None
-            regime_filter = None
-
-        # --- запуск rule-движка на уже отфильтрованных сигналах ---
-        bt_result = run_rule_symbol(
-            df_sig,
+    n_jobs = getattr(args, "n_jobs", None)
+    tasks = [
+        (
+            sym,
+            interval,
+            equity0,
+            range_params,
             bt_params,
-            equity0=equity0,
-            collect_bar_stats=False,
-            collect_trades=True,
+            regime_segments_path,
+            regime_filter,
+            profile_name,
+            save_trades,
+            save_snapshots,
         )
-
-        metrics = bt_result.get("metrics", {}) or {}
-        metrics["bars_total"] = bars_total
-        metrics["bars_in_regime"] = bars_in_regime
-        metrics["entries_raw"] = entries_raw
-        metrics["entries_after_regime_filter"] = entries_after_regime_filter
-        metrics["regime_filter"] = regime_filter
-        metrics["regime_segments_path"] = regime_segments_path
-        metrics["profile"] = profile_name
-
+        for sym in symbols
+    ]
+    for sym, metrics, trades_df, snaps_df in parallel_map(tasks, _run_range_symbol_task, n_jobs=n_jobs):
+        if metrics is None:
+            continue
         all_results[sym] = metrics
-
-        trades_df = bt_result.get("trades")
-        if isinstance(trades_df, pd.DataFrame) and not trades_df.empty and save_trades:
-            trades_norm = trades_to_frame(trades_df.to_dict("records"), symbol=sym)
-            if profile_name:
-                trades_norm["profile"] = profile_name
-            all_trades.append(trades_norm)
-
-            if save_snapshots:
-                feats = add_basic_range_features(
-                    df_sig,
-                    ma_len=range_params.ma_len,
-                    band_mult=range_params.band_mult,
-                    atr_len=range_params.atr_len,
-                )
-                snaps = make_entry_snapshots(
-                    features_df=feats,
-                    trades_df=trades_norm,
-                    feature_cols=None,
-                    label_cols=None,
-                )
-                if not snaps.empty:
-                    if profile_name:
-                        snaps["profile"] = profile_name
-                    all_snapshots.append(snaps)
+        if isinstance(trades_df, pd.DataFrame) and not trades_df.empty:
+            all_trades.append(trades_df)
+        if isinstance(snaps_df, pd.DataFrame) and not snaps_df.empty:
+            all_snapshots.append(snaps_df)
 
     # --- сохранение результатов ---
     if write_files and out_prefix:

@@ -194,6 +194,17 @@
   },
   "RangeV3": {
     "enabled": true,
+    "risk_profile": "prod_baseline",
+    "risk_profiles": {
+      "prod_baseline": {
+        "max_consecutive_losses": 3,
+        "daily_dd_limit_pct": 0.02
+      },
+      "diag_fullrun": {
+        "max_consecutive_losses": 999999,
+        "daily_dd_limit_pct": 1.0
+      }
+    },
     "params": {
       "range_window_bars": 50,
       "min_tests_AAA": 3,

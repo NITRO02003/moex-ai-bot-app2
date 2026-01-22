@@ -1,0 +1,15 @@
+{
+  "symbol": "YNDX",
+  "trades": 156,
+  "total_pnl": -116690.28582635416,
+  "total_return": -0.11669028582635416,
+  "win_rate": 0.4230769230769231,
+  "gross_profit": 336825.42616941006,
+  "gross_loss": 453515.7119957642,
+  "pf": 0.7426984716519721,
+  "max_drawdown": -0.14658176681710153,
+  "equity0": 1000000.0,
+  "equity_final": 883309.714173646,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

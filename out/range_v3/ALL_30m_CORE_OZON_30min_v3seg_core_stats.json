@@ -1,0 +1,15 @@
+{
+  "symbol": "OZON",
+  "trades": 299,
+  "total_pnl": -20290.790050455103,
+  "total_return": -0.020290790050455105,
+  "win_rate": 0.5351170568561873,
+  "gross_profit": 854539.649415729,
+  "gross_loss": 874830.4394661841,
+  "pf": 0.9768060310489008,
+  "max_drawdown": -0.07068130409961217,
+  "equity0": 1000000.0,
+  "equity_final": 979709.2099495451,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

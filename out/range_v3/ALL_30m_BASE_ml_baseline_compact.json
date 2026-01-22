@@ -1,0 +1,106 @@
+{
+  "entry": {
+    "rows": 223,
+    "target": "pnl_rel > 0",
+    "target_rate": 0.4618834080717489,
+    "train_rows": 206,
+    "test_rows": 17,
+    "features": [
+      "v3_signal",
+      "band_width_pct",
+      "range_vs_atr",
+      "atr_14_pct",
+      "dist_from_ma",
+      "band_pos",
+      "edge_proximity",
+      "z_ma",
+      "hour",
+      "day_of_week"
+    ],
+    "excluded_features": [
+      "bars_in_trade",
+      "max_adverse_excursion",
+      "pnl_abs",
+      "pnl_rel",
+      "y_profit"
+    ],
+    "threshold": 0.39999999999999997,
+    "pos_weight": 1.0,
+    "train_metrics": {
+      "accuracy": 0.558252427184466,
+      "precision": 0.5340909090909091,
+      "recall": 0.912621359223301,
+      "f1": 0.6738351254480286,
+      "auc": 0.4766707512489396
+    },
+    "test_metrics": {
+      "accuracy": 0.23529411764705882,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "auc": null
+    },
+    "baseline": {
+      "majority_class": 0,
+      "accuracy": 1.0
+    }
+  },
+  "intrade": {
+    "rows": 14563,
+    "target": "y_exit",
+    "target_rate": 0.20057680422989768,
+    "train_rows": 13378,
+    "test_rows": 1185,
+    "features": [
+      "v3_signal",
+      "band_width_pct",
+      "range_vs_atr",
+      "atr_14_pct",
+      "dist_from_ma",
+      "band_pos",
+      "edge_proximity",
+      "z_ma",
+      "hour",
+      "day_of_week"
+    ],
+    "excluded_features": [
+      "exit_price",
+      "trade_bars_in_trade",
+      "trade_id",
+      "trade_pnl_abs",
+      "trade_pnl_rel",
+      "y_exit"
+    ],
+    "threshold": 0.39999999999999997,
+    "pos_weight": 4.20342279268767,
+    "train_metrics": {
+      "accuracy": 0.5896247570638361,
+      "precision": 0.29993145990404385,
+      "recall": 0.8510307273434461,
+      "f1": 0.4435434826677478,
+      "auc": 0.5882848811168209
+    },
+    "test_metrics": {
+      "accuracy": 0.6886075949367089,
+      "precision": 0.48392554991539766,
+      "recall": 0.8171428571428572,
+      "f1": 0.6078639744952179,
+      "auc": 0.4861591103507271
+    },
+    "baseline": {
+      "majority_class": 0,
+      "accuracy": 0.7046413502109705
+    }
+  },
+  "params": {
+    "test_size": 0.0,
+    "lr": 0.1,
+    "epochs": 2000,
+    "l2": 0.001,
+    "exclude_entry": [],
+    "exclude_intrade": [],
+    "exclude_proxy": false,
+    "split_mode": "per_symbol",
+    "feature_set": "compact"
+  }
+}

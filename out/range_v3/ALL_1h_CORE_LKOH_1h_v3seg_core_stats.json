@@ -1,0 +1,15 @@
+{
+  "symbol": "LKOH",
+  "trades": 121,
+  "total_pnl": 13711.365562378478,
+  "total_return": 0.013711365562378479,
+  "win_rate": 0.5371900826446281,
+  "gross_profit": 302650.6792058263,
+  "gross_loss": 288939.3136434479,
+  "pf": 1.0474541362664767,
+  "max_drawdown": -0.050205532444467724,
+  "equity0": 1000000.0,
+  "equity_final": 1013711.3655623787,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

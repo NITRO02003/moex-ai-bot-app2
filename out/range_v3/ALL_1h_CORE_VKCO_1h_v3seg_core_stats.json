@@ -1,0 +1,15 @@
+{
+  "symbol": "VKCO",
+  "trades": 69,
+  "total_pnl": -90817.36461104121,
+  "total_return": -0.0908173646110412,
+  "win_rate": 0.43478260869565216,
+  "gross_profit": 170306.54390662952,
+  "gross_loss": 261123.90851767073,
+  "pf": 0.6522058622414675,
+  "max_drawdown": -0.12353065431314893,
+  "equity0": 1000000.0,
+  "equity_final": 909182.6353889588,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

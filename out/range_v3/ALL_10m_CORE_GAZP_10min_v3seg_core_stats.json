@@ -1,0 +1,15 @@
+{
+  "symbol": "GAZP",
+  "trades": 216,
+  "total_pnl": 67827.66224460863,
+  "total_return": 0.06782766224460862,
+  "win_rate": 0.5092592592592593,
+  "gross_profit": 639124.456421909,
+  "gross_loss": 571296.7941773004,
+  "pf": 1.118725788304631,
+  "max_drawdown": -0.08715880052947501,
+  "equity0": 1000000.0,
+  "equity_final": 1067827.6622446086,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

@@ -1,0 +1,15 @@
+{
+  "symbol": "PLZL",
+  "trades": 127,
+  "total_pnl": 16037.639940327055,
+  "total_return": 0.016037639940327055,
+  "win_rate": 0.5039370078740157,
+  "gross_profit": 357300.8856984828,
+  "gross_loss": 341263.2457581557,
+  "pf": 1.0469949229507491,
+  "max_drawdown": -0.07357524330436828,
+  "equity0": 1000000.0,
+  "equity_final": 1016037.6399403274,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

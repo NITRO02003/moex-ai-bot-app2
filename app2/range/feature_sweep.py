@@ -8,6 +8,7 @@ from typing import Iterable, List, Dict, Any, Optional
 import numpy as np
 import pandas as pd
 
+from ..parallel import parallel_map
 
 def _feature_group(name: str) -> str:
     if name in {"dist_from_ma", "band_pos", "z_ma", "edge_proximity"}:
@@ -49,12 +50,19 @@ def load_snapshots(glob_pattern: str, symbols: Optional[List[str]] = None) -> pd
 def add_derived_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    # Время
+    # Время (entry_dt или bar datetime)
+    dt = None
     if "entry_dt" in df.columns:
         dt = pd.to_datetime(df["entry_dt"], errors="coerce", utc=True)
         df["entry_dt"] = dt
-        df["hour"] = dt.dt.hour
-        df["day_of_week"] = dt.dt.dayofweek
+    elif "datetime" in df.columns:
+        dt = pd.to_datetime(df["datetime"], errors="coerce", utc=True)
+
+    if dt is not None:
+        if "hour" not in df.columns:
+            df["hour"] = dt.dt.hour
+        if "day_of_week" not in df.columns:
+            df["day_of_week"] = dt.dt.dayofweek
 
     # Производные фичи
     ma_close = df.get("ma_close")
@@ -153,12 +161,85 @@ def compute_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     return out
 
 
+def _univariate_group_task(
+    args: tuple[str, pd.DataFrame, List[str], List[float], int, str],
+) -> pd.DataFrame:
+    symbol, g, features, quantiles, min_trades_bin, scope = args
+    rows: List[Dict[str, Any]] = []
+    g = g.copy()
+    for feat in features:
+        if feat not in g.columns:
+            continue
+
+        series = pd.to_numeric(g[feat], errors="coerce").dropna()
+        if series.empty:
+            continue
+
+        q_vals = sorted(set(quantiles))
+        q_vals = [q for q in q_vals if 0.0 <= q <= 1.0]
+        if len(q_vals) < 2:
+            continue
+
+        quantile_map = {q: float(series.quantile(q)) for q in q_vals}
+
+        bin_index = 0
+        for i in range(len(q_vals) - 1):
+            q_low = q_vals[i]
+            q_high = q_vals[i + 1]
+            v_low = quantile_map[q_low]
+            v_high = quantile_map[q_high]
+
+            if not np.isfinite(v_low) or not np.isfinite(v_high):
+                continue
+            if v_high < v_low:
+                continue
+
+            mask = (g[feat] >= v_low) & (g[feat] <= v_high)
+            bin_df = g[mask]
+            if len(bin_df) < min_trades_bin:
+                continue
+
+            metrics = compute_metrics(bin_df)
+            row: Dict[str, Any] = {
+                "scope": scope,
+                "symbol": symbol,
+                "feature_group": _feature_group(feat),
+                "feature": feat,
+                "bin_index": bin_index,
+                "q_low": q_low,
+                "q_high": q_high,
+                "value_low": v_low,
+                "value_high": v_high,
+            }
+            row.update(metrics)
+            rows.append(row)
+            bin_index += 1
+
+        metrics_full = compute_metrics(g)
+        row_full: Dict[str, Any] = {
+            "scope": scope,
+            "symbol": symbol,
+            "feature_group": _feature_group(feat),
+            "feature": feat,
+            "bin_index": -1,
+            "q_low": 0.0,
+            "q_high": 1.0,
+            "value_low": float(series.min()),
+            "value_high": float(series.max()),
+        }
+        row_full.update(metrics_full)
+        rows.append(row_full)
+
+    return pd.DataFrame(rows)
+
+
 def univariate_sweep(
     df_all: pd.DataFrame,
     features: List[str],
     quantiles: List[float],
     min_trades_bin: int,
     mode: str,
+    n_jobs: int | None = None,
 ) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
 
@@ -172,70 +253,16 @@ def univariate_sweep(
         groups = list(df_all.groupby("symbol"))
         scope = "per_symbol"
 
-    for symbol, g in groups:
-        g = g.copy()
-        for feat in features:
-            if feat not in g.columns:
-                continue
-
-            series = pd.to_numeric(g[feat], errors="coerce").dropna()
-            if series.empty:
-                continue
-
-            q_vals = sorted(set(quantiles))
-            q_vals = [q for q in q_vals if 0.0 <= q <= 1.0]
-            if len(q_vals) < 2:
-                continue
-
-            quantile_map = {q: float(series.quantile(q)) for q in q_vals}
-
-            bin_index = 0
-            for i in range(len(q_vals) - 1):
-                q_low = q_vals[i]
-                q_high = q_vals[i + 1]
-                v_low = quantile_map[q_low]
-                v_high = quantile_map[q_high]
-
-                if not np.isfinite(v_low) or not np.isfinite(v_high):
-                    continue
-                if v_high < v_low:
-                    continue
-
-                mask = (g[feat] >= v_low) & (g[feat] <= v_high)
-                bin_df = g[mask]
-                if len(bin_df) < min_trades_bin:
-                    continue
-
-                metrics = compute_metrics(bin_df)
-                row: Dict[str, Any] = {
-                    "scope": scope,
-                    "symbol": symbol,
-                    "feature_group": _feature_group(feat),
-                    "feature": feat,
-                    "bin_index": bin_index,
-                    "q_low": q_low,
-                    "q_high": q_high,
-                    "value_low": v_low,
-                    "value_high": v_high,
-                }
-                row.update(metrics)
-                rows.append(row)
-                bin_index += 1
-
-            metrics_full = compute_metrics(g)
-            row_full: Dict[str, Any] = {
-                "scope": scope,
-                "symbol": symbol,
-                "feature_group": _feature_group(feat),
-                "feature": feat,
-                "bin_index": -1,
-                "q_low": 0.0,
-                "q_high": 1.0,
-                "value_low": float(series.min()),
-                "value_high": float(series.max()),
-            }
-            row_full.update(metrics_full)
-            rows.append(row_full)
+    if mode == "per-symbol":
+        tasks = [(symbol, g, features, quantiles, min_trades_bin, scope) for symbol, g in groups]
+        for df_part in parallel_map(tasks, _univariate_group_task, n_jobs=n_jobs):
+            if not df_part.empty:
+                rows.extend(df_part.to_dict(orient="records"))
+    else:
+        for symbol, g in groups:
+            df_part = _univariate_group_task((symbol, g, features, quantiles, min_trades_bin, scope))
+            if not df_part.empty:
+                rows.extend(df_part.to_dict(orient="records"))
 
     if not rows:
         return pd.DataFrame()
@@ -302,6 +329,7 @@ def main(args):
     symbols = args.symbols
     out_prefix: str = args.out_prefix
     no_time_stats: bool = bool(getattr(args, "no_time_stats", False))
+    n_jobs = getattr(args, "n_jobs", None)
 
     df_all = load_snapshots(snapshots_glob, symbols=symbols)
     df_all = add_derived_features(df_all)
@@ -311,7 +339,7 @@ def main(args):
     if not features:
         raise ValueError("None of the requested features are present in snapshots")
 
-    df_uni = univariate_sweep(df_all, features, quantiles, min_trades_bin, mode)
+    df_uni = univariate_sweep(df_all, features, quantiles, min_trades_bin, mode, n_jobs=n_jobs)
 
     out_dir = os.path.dirname(out_prefix)
     if out_dir:

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..parallel import parallel_map
 from .range_v3 import RangeV3Params, run_range_v3_for_symbol
 
 
@@ -26,7 +27,15 @@ class Trade:
 def _load_range_config(path: str) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
-    return cfg.get("RangeV3", {}).get("params", {})
+    range_cfg = cfg.get("RangeV3", {})
+    params = dict(range_cfg.get("params", {}))
+    profile_name = str(range_cfg.get("risk_profile", "") or "")
+    profiles = range_cfg.get("risk_profiles", {})
+    if profile_name and isinstance(profiles, dict):
+        overrides = profiles.get(profile_name)
+        if isinstance(overrides, dict):
+            params.update(overrides)
+    return params
 
 
 def _find_data_path(symbol: str, interval: str) -> str:
@@ -281,6 +290,41 @@ def _trades_to_df(trades: List[Trade]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _run_symbol_task(
+    args: tuple[str, str, float, RangeV3Params, str, str],
+) -> tuple[str, Dict[str, Any] | None, pd.DataFrame]:
+    symbol, interval, equity0, params, out_prefix, tag = args
+    try:
+        df = _load_ohlcv(symbol, interval)
+    except FileNotFoundError:
+        return symbol, None, pd.DataFrame()
+
+    sig_df, debug_info = run_range_v3_for_symbol(df, params)
+    trades, metrics = _run_trades_from_signals(symbol, sig_df, params, equity0)
+
+    base = f"{out_prefix}_{symbol}_{interval}_{tag}"
+    stats_path = f"{base}_stats.json"
+    with open(stats_path, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, ensure_ascii=False, indent=2)
+
+    trades_df = _trades_to_df(trades)
+    trades_path = f"{base}_trades.csv"
+    trades_df.to_csv(trades_path, index=False)
+
+    snaps_path = f"{base}_snapshots.csv"
+    sig_df.to_csv(snaps_path)
+
+    debug_path = f"{base}_debug.json"
+    with open(debug_path, "w", encoding="utf-8") as f:
+        json.dump(debug_info, f, ensure_ascii=False, indent=2)
+
+    print(
+        f"[range-v3] {symbol}: trades={len(trades)} "
+        f"pf={metrics['pf']:.3f} win_rate={metrics['win_rate']:.3f}"
+    )
+    return symbol, metrics, trades_df
+
+
 def main(args):
     symbols: List[str] = list(args.symbols)
     interval: str = args.interval
@@ -288,6 +332,7 @@ def main(args):
     cfg_path: str = args.config_range
     out_prefix: str = args.out_prefix
     tag: str = getattr(args, "tag", "rangeV3")
+    n_jobs = getattr(args, "n_jobs", None)
 
     params_cfg = _load_range_config(cfg_path)
     params = RangeV3Params(params_cfg)
@@ -297,39 +342,13 @@ def main(args):
 
     all_symbol_metrics: List[Dict[str, Any]] = []
     all_trades_df_list: List[pd.DataFrame] = []
-
-    for symbol in symbols:
-        df = _load_ohlcv(symbol, interval)
-        sig_df, debug_info = run_range_v3_for_symbol(df, params)
-
-        trades, metrics = _run_trades_from_signals(symbol, sig_df, params, equity0)
-
-        base = f"{out_prefix}_{symbol}_{interval}_{tag}"
-
-        # per-symbol stats
-        stats_path = f"{base}_stats.json"
-        with open(stats_path, "w", encoding="utf-8") as f:
-            json.dump(metrics, f, ensure_ascii=False, indent=2)
-
-        # per-symbol trades
-        trades_df = _trades_to_df(trades)
-        trades_path = f"{base}_trades.csv"
-        trades_df.to_csv(trades_path, index=False)
-
-        # snapshots (signals & debug columns)
-        snaps_path = f"{base}_snapshots.csv"
-        sig_df.to_csv(snaps_path)
-
-        # debug
-        debug_path = f"{base}_debug.json"
-        with open(debug_path, "w", encoding="utf-8") as f:
-            json.dump(debug_info, f, ensure_ascii=False, indent=2)
-
+    tasks = [(symbol, interval, equity0, params, out_prefix, tag) for symbol in symbols]
+    for symbol, metrics, trades_df in parallel_map(tasks, _run_symbol_task, n_jobs=n_jobs):
+        if metrics is None:
+            continue
         all_symbol_metrics.append(metrics)
         if not trades_df.empty:
             all_trades_df_list.append(trades_df)
-
-        print(f"[range-v3] {symbol}: trades={len(trades)} pf={metrics['pf']:.3f} win_rate={metrics['win_rate']:.3f}")
 
     # Aggregated portfolio stats
     if all_trades_df_list:

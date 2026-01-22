@@ -1,0 +1,169 @@
+{
+  "params": {
+    "iterations": 500,
+    "depth": 5,
+    "learning_rate": 0.05,
+    "l2_leaf_reg": 5.0,
+    "seed": 42,
+    "feature_set": "compact",
+    "test_size": 0.2,
+    "split_mode": "per_symbol",
+    "include": [
+      "atr_14_pct",
+      "range_vs_atr",
+      "band_width_pct"
+    ],
+    "exclude": [],
+    "task_type": "CPU",
+    "devices": ""
+  },
+  "intrade": {
+    "rows": 4744,
+    "target": "y_exit",
+    "target_rate": 0.20868465430016864,
+    "train_rows": 3785,
+    "test_rows": 959,
+    "features": [
+      "atr_14_pct",
+      "range_vs_atr",
+      "band_width_pct"
+    ],
+    "pos_weight": 4.121786197564276,
+    "train_metrics": {
+      "accuracy": 0.774108322324967,
+      "precision": 0.4619921363040629,
+      "recall": 0.9539918809201624,
+      "f1": 0.6225165562913907,
+      "auc": 0.5683280364141353,
+      "threshold": 0.6
+    },
+    "test_metrics": {
+      "accuracy": 0.8008342022940563,
+      "precision": 0.5710900473933649,
+      "recall": 0.9601593625498008,
+      "f1": 0.7161961367013373,
+      "auc": 0.6490309946654061,
+      "threshold": 0.6
+    },
+    "per_symbol_test": {
+      "GAZP": {
+        "accuracy": 0.7934272300469484,
+        "precision": 0.31746031746031744,
+        "recall": 0.9523809523809523,
+        "f1": 0.47619047619047616,
+        "auc": 0.7517361111111112,
+        "n": 426,
+        "target_rate": 0.09859154929577464,
+        "threshold": 0.6
+      },
+      "GMKN": {
+        "accuracy": 0.7755102040816326,
+        "precision": 0.7428571428571429,
+        "recall": 0.9285714285714286,
+        "f1": 0.8253968253968255,
+        "auc": 0.33758503401360546,
+        "n": 98,
+        "target_rate": 0.5714285714285714,
+        "threshold": 0.6
+      },
+      "LKOH": {
+        "accuracy": 0.782312925170068,
+        "precision": 0.7058823529411765,
+        "recall": 0.972972972972973,
+        "f1": 0.8181818181818183,
+        "auc": 0.6519807478711588,
+        "n": 147,
+        "target_rate": 0.5034013605442177,
+        "threshold": 0.6
+      },
+      "ROSN": {
+        "accuracy": 0.8284518828451883,
+        "precision": 0.5454545454545454,
+        "recall": 0.9795918367346939,
+        "f1": 0.7007299270072993,
+        "auc": 0.06680988184747583,
+        "n": 239,
+        "target_rate": 0.20502092050209206,
+        "threshold": 0.6
+      },
+      "SBER": {
+        "accuracy": 0.8367346938775511,
+        "precision": 0.8055555555555556,
+        "recall": 0.9666666666666667,
+        "f1": 0.8787878787878789,
+        "auc": 0.22280701754385965,
+        "n": 49,
+        "target_rate": 0.6122448979591837,
+        "threshold": 0.6
+      }
+    },
+    "per_symbol_full": {
+      "GAZP": {
+        "accuracy": 0.8163430420711975,
+        "precision": 0.42408376963350786,
+        "recall": 0.9585798816568047,
+        "f1": 0.588021778584392,
+        "auc": 0.33843436500058227,
+        "n": 2472,
+        "target_rate": 0.13673139158576053,
+        "threshold": 0.6
+      },
+      "GMKN": {
+        "accuracy": 0.8075880758807588,
+        "precision": 0.5326460481099656,
+        "recall": 0.9627329192546584,
+        "f1": 0.6858407079646017,
+        "auc": 0.5216960719937135,
+        "n": 738,
+        "target_rate": 0.2181571815718157,
+        "threshold": 0.6
+      },
+      "LKOH": {
+        "accuracy": 0.7110016420361248,
+        "precision": 0.5085227272727273,
+        "recall": 0.9835164835164835,
+        "f1": 0.6704119850187267,
+        "auc": 0.5677484108397457,
+        "n": 609,
+        "target_rate": 0.2988505747126437,
+        "threshold": 0.6
+      },
+      "ROSN": {
+        "accuracy": 0.6926470588235294,
+        "precision": 0.47043010752688175,
+        "recall": 0.9358288770053476,
+        "f1": 0.6261180679785331,
+        "auc": 0.36990595611285265,
+        "n": 680,
+        "target_rate": 0.275,
+        "threshold": 0.6
+      },
+      "SBER": {
+        "accuracy": 0.7346938775510204,
+        "precision": 0.6686390532544378,
+        "recall": 0.9262295081967213,
+        "f1": 0.7766323024054982,
+        "auc": 0.529188324670132,
+        "n": 245,
+        "target_rate": 0.49795918367346936,
+        "threshold": 0.6
+      }
+    },
+    "feature_config": {
+      "feature_set": "compact",
+      "include": [
+        "atr_14_pct",
+        "range_vs_atr",
+        "band_width_pct"
+      ],
+      "exclude": [
+        "y_exit",
+        "trade_id",
+        "trade_pnl_abs",
+        "trade_pnl_rel",
+        "trade_bars_in_trade",
+        "exit_price"
+      ]
+    }
+  }
+}

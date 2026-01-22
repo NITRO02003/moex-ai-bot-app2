@@ -1,0 +1,15 @@
+{
+  "symbol": "ROSN",
+  "trades": 326,
+  "total_pnl": -126713.13268270761,
+  "total_return": -0.12671313268270762,
+  "win_rate": 0.5122699386503068,
+  "gross_profit": 848314.2745055924,
+  "gross_loss": 975027.4071883,
+  "pf": 0.8700414657592939,
+  "max_drawdown": -0.2035355213833847,
+  "equity0": 1000000.0,
+  "equity_final": 873286.8673172923,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

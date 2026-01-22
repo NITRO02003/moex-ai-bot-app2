@@ -1,0 +1,25 @@
+{
+  "symbols": [
+    "SBER",
+    "GAZP",
+    "LKOH",
+    "GMKN",
+    "YNDX",
+    "ROSN",
+    "NVTK",
+    "NLMK",
+    "MTSS",
+    "TATN",
+    "CHMF",
+    "SNGS",
+    "PIKK",
+    "PLZL",
+    "MGNT",
+    "VKCO",
+    "OZON"
+  ],
+  "interval": "10min",
+  "out_prefix": "out/range_v3/ALL_10m_BASE",
+  "tag": "v3seg_base",
+  "entry_rows": 191
+}

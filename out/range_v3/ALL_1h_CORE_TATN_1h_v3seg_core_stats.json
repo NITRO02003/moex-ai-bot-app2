@@ -1,0 +1,15 @@
+{
+  "symbol": "TATN",
+  "trades": 119,
+  "total_pnl": -88926.54244026175,
+  "total_return": -0.08892654244026175,
+  "win_rate": 0.4789915966386555,
+  "gross_profit": 275959.17784622323,
+  "gross_loss": 364885.720286485,
+  "pf": 0.7562893325328207,
+  "max_drawdown": -0.16711509774318883,
+  "equity0": 1000000.0,
+  "equity_final": 911073.4575597378,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

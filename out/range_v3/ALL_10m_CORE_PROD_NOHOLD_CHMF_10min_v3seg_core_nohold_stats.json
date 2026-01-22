@@ -1,0 +1,15 @@
+{
+  "symbol": "CHMF",
+  "trades": 284,
+  "total_pnl": -8788.732760669085,
+  "total_return": -0.008788732760669086,
+  "win_rate": 0.5140845070422535,
+  "gross_profit": 693338.5858836496,
+  "gross_loss": 702127.3186443187,
+  "pf": 0.9874827078689395,
+  "max_drawdown": -0.15991383045415772,
+  "equity0": 1000000.0,
+  "equity_final": 991211.2672393307,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

@@ -1,0 +1,15 @@
+{
+  "symbol": "SNGS",
+  "trades": 285,
+  "total_pnl": 276003.8355149558,
+  "total_return": 0.27600383551495583,
+  "win_rate": 0.5368421052631579,
+  "gross_profit": 1076895.7088464964,
+  "gross_loss": 800891.8733315405,
+  "pf": 1.344620596993747,
+  "max_drawdown": -0.06850241123784229,
+  "equity0": 1000000.0,
+  "equity_final": 1276003.8355149555,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

@@ -22,6 +22,19 @@ import numpy as np
 import pandas as pd
 
 from ..range_v3 import RangeV3Params
+from .blocks import (
+    calc_atr_pct,
+    calc_breakout_mask,
+    calc_confirm_mask,
+    calc_deadzone_mask,
+    calc_entry_signal,
+    calc_entry_zone,
+    calc_height_mask,
+    calc_recent_breakout,
+    calc_roll_levels,
+    calc_slope_mask,
+    calc_vol_mask,
+)
 from .geometry import compute_geometry
 
 def _params_snapshot(params: RangeV3Params) -> Dict[str, Any]:
@@ -47,9 +60,6 @@ def _params_snapshot(params: RangeV3Params) -> Dict[str, Any]:
             snap[k] = getattr(params, k)
     return snap
 
-
-def _calc_ma(df: pd.DataFrame, window: int) -> pd.Series:
-    return df["close"].rolling(window=window, min_periods=window).mean()
 
 def _run_v3_vectorized(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Honest (rolling) Range V3 baseline для backtest.
@@ -85,25 +95,15 @@ def _run_v3_vectorized(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd.Data
     # Rolling-квантили по прошлым барам
     # Разреженные данные: используем смягчённый min_periods, чтобы не получить сплошной NaN.
     min_valid = max(int(window * 0.4), 10)
-    roll_L = low.rolling(window=window, min_periods=min_valid).quantile(0.15).shift(1)
-    roll_U = high.rolling(window=window, min_periods=min_valid).quantile(0.85).shift(1)
-    roll_H = roll_U - roll_L
-    roll_M = (roll_L + roll_U) / 2.0
+    roll_L, roll_U, roll_H, roll_M = calc_roll_levels(low, high, window, min_valid)
 
     # Высота диапазона в процентах к цене (каузально: делим на предыдущий close)
-    height_pct = roll_H / close.shift(1)
-    mask_height = (
-        (height_pct >= params.min_range_height_pct)
-        & (height_pct <= params.max_range_height_pct)
+    height_pct, mask_height = calc_height_mask(
+        roll_H, close, params.min_range_height_pct, params.max_range_height_pct
     )
 
     # Slope-фильтр: измеряем наклон MA в относительных единицах (каузально)
-    ma = _calc_ma(df, window)
-    slope_raw = (ma - ma.shift(window)) / float(max(window, 1))
-    slope_abs = slope_raw.abs().shift(1)
-    slope_pct = slope_abs / close.shift(1)
-    slope_k = params.slope_k
-    mask_slope = slope_pct < slope_k
+    slope_pct, mask_slope = calc_slope_mask(close, window, params.slope_k)
 
     # Робастный ATR для фильтра по волатильности
     atr_window = params.atr_window
@@ -113,23 +113,12 @@ def _run_v3_vectorized(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd.Data
     )
     high = df["high"]
     low = df["low"]
-    prev_close = close.shift(1)
-    tr1 = high - low
-    tr2 = (high - prev_close).abs()
-    tr3 = (low - prev_close).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=atr_window, min_periods=min_valid_atr).mean()
-    atr_pct = (atr / close).shift(1)
+    atr_pct = calc_atr_pct(high, low, close, atr_window, min_valid_atr)
+    mask_vol = calc_vol_mask(atr_pct, params.atr_pct_min, params.atr_pct_max)
+    mask_deadzone = calc_deadzone_mask(atr_pct, params.deadzone_min_atr_pct)
 
-    mask_vol = (
-        atr_pct.notna()
-        & (atr_pct >= params.atr_pct_min)
-        & (atr_pct <= params.atr_pct_max)
-    )
-
-    # Валидный бокс: L/U, высота и волатильность в допустимых пределах
-    # slope пока используем только в диагностике
-    mask_range = roll_L.notna() & roll_U.notna() & mask_height & mask_vol
+    # Валидный бокс: L/U, высота, волатильность и slope в допустимых пределах
+    mask_range = roll_L.notna() & roll_U.notna() & mask_height & mask_vol & mask_deadzone & mask_slope
 
     out = df.copy()
     out["v3_signal"] = 0.0
@@ -144,26 +133,37 @@ def _run_v3_vectorized(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd.Data
     out.loc[mask_range, "v3_M"] = roll_M[mask_range]
     out.loc[mask_range, "v3_segment_quality"] = "ROLLING"
 
-    # --- Логика входа (long-only baseline) ---
+    # --- Логика входа (long + short) ---
     # Зона входа вокруг L: [L - shadow, L + alpha]
-    shadow = roll_H * params.shadow_pct
-    alpha = roll_H * params.entry_zone_alpha
-
-    long_zone_low = roll_L - shadow
-    long_zone_high = roll_L + alpha
+    long_zone_low, long_zone_high, shadow, alpha = calc_entry_zone(
+        roll_L, roll_H, params.shadow_pct, params.entry_zone_alpha
+    )
+    # Зона входа вокруг U: [U - alpha, U + shadow]
+    short_zone_low = roll_U - alpha
+    short_zone_high = roll_U + shadow
 
     # Бар касается зоны, если его диапазон [low, high] пересекается с зоной
-    is_in_zone = (low <= long_zone_high) & (high >= long_zone_low)
+    is_in_zone_long = (low <= long_zone_high) & (high >= long_zone_low)
+    is_in_zone_short = (high >= short_zone_low) & (low <= short_zone_high)
 
-    # Простой breakout вниз: закрытие значительно ниже L
-    breakout_level = roll_L - (shadow * 2.0)
-    is_breakout = close < breakout_level
-    out.loc[is_breakout, "v3_breakout"] = True
+    # Простой breakout вниз/вверх
+    _breakout_level, is_breakout_long = calc_breakout_mask(close, roll_L, shadow)
+    breakout_level_short = roll_U + (shadow * 2.0)
+    is_breakout_short = close > breakout_level_short
+    out.loc[is_breakout_long | is_breakout_short, "v3_breakout"] = True
+
+    confirm_long = calc_confirm_mask(is_in_zone_long, int(getattr(params, "min_confirmations", 1)))
+    confirm_short = calc_confirm_mask(is_in_zone_short, int(getattr(params, "min_confirmations", 1)))
+    recent_breakout_long = calc_recent_breakout(is_breakout_long, int(getattr(params, "lock_bars_after_breakout", 0)))
+    recent_breakout_short = calc_recent_breakout(is_breakout_short, int(getattr(params, "lock_bars_after_breakout", 0)))
 
     # Кандидаты на вход: есть бокс, бар коснулся зоны, не breakout
-    signal_long = mask_range & is_in_zone & (~is_breakout)
+    signal_long = calc_entry_signal(mask_range, confirm_long, is_breakout_long) & (~recent_breakout_long)
+    signal_short = calc_entry_signal(mask_range, confirm_short, is_breakout_short) & (~recent_breakout_short)
+    signal_short = signal_short & (~signal_long)
 
     out.loc[signal_long, "v3_signal"] = 1.0
+    out.loc[signal_short, "v3_signal"] = -1.0
 
     # Диагностика
     rolling_diag: Dict[str, Any] = {
@@ -172,8 +172,11 @@ def _run_v3_vectorized(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd.Data
         "mask_height_frac": float(mask_height.mean()) if len(mask_height) > 0 else 0.0,
         "mask_slope_frac": float(mask_slope.mean()) if len(mask_slope) > 0 else 0.0,
         "mask_vol_frac": float(mask_vol.mean()) if len(mask_vol) > 0 else 0.0,
+        "mask_deadzone_frac": float(mask_deadzone.mean()) if len(mask_deadzone) > 0 else 0.0,
         "atr_notna_frac": float(atr_pct.notna().mean()) if len(atr_pct) > 0 else 0.0,
-        "signals_count": int(out["v3_signal"].sum()),
+        "confirm_mask_frac": float(confirm_long.mean()) if len(confirm_long) > 0 else 0.0,
+        "recent_breakout_frac": float(recent_breakout_long.mean()) if len(recent_breakout_long) > 0 else 0.0,
+        "signals_count": int((out["v3_signal"] != 0).sum()),
     }
     debug_info: Dict[str, Any] = {"rolling_diag": rolling_diag}
 

@@ -1,0 +1,15 @@
+{
+  "symbol": "NVTK",
+  "trades": 331,
+  "total_pnl": -168532.16983586896,
+  "total_return": -0.16853216983586897,
+  "win_rate": 0.48942598187311176,
+  "gross_profit": 787636.993720557,
+  "gross_loss": 956169.163556426,
+  "pf": 0.8237423080984734,
+  "max_drawdown": -0.19534632457853196,
+  "equity0": 1000000.0,
+  "equity_final": 831467.8301641308,
+  "circuit_breaker_hit": false,
+  "circuit_breaker_time": null
+}

@@ -1,0 +1,13 @@
+{
+  "symbol": "YNDX",
+  "trades": 3,
+  "total_pnl": -45941.64227106518,
+  "total_return": -0.04594164227106518,
+  "win_rate": 0.0,
+  "gross_profit": 0.0,
+  "gross_loss": 45941.64227106518,
+  "pf": 0.0,
+  "max_drawdown": -0.04594164227106527,
+  "equity0": 1000000.0,
+  "equity_final": 954058.3577289347
+}

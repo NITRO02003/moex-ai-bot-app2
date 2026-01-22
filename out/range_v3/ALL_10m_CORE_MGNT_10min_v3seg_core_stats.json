@@ -1,0 +1,15 @@
+{
+  "symbol": "MGNT",
+  "trades": 225,
+  "total_pnl": 96441.84839361205,
+  "total_return": 0.09644184839361204,
+  "win_rate": 0.5288888888888889,
+  "gross_profit": 678495.7397447397,
+  "gross_loss": 582053.8913511276,
+  "pf": 1.165692300707312,
+  "max_drawdown": -0.05399641157560943,
+  "equity0": 1000000.0,
+  "equity_final": 1096441.8483936123,
+  "circuit_breaker_hit": true,
+  "circuit_breaker_time": "2025-03-05 21:30:00+00:00"
+}
