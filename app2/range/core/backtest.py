@@ -1,60 +1,20 @@
-import json
-import os
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
 from ..range_v3 import RangeV3Params
-# The following imports were used solely for entry-model gating in the previous
-# implementation.  That logic has been moved to ``entry_gating.py``.  We no
-# longer import feature engineering or slope helpers here.
-from .entry_gating import apply_entry_ai_filter as _apply_entry_ai_filter
+
 from .execution import run_trades_from_signals as run_trades_from_signals_impl
 
-# Reporting utilities: convert trades to DataFrames and write outputs
-from .reporting import trades_to_df as _report_trades_to_df, save_symbol_outputs, save_portfolio_outputs
-
-# Default list of compact features for entry gating.  Still required for CLI default argument.
-from ..baseline_ml import COMPACT_FEATURES
-
-from ...parallel import parallel_map
-from .engine import run_core_for_symbol
-from .metrics import build_symbol_metrics, compute_pnl_rel, compute_trade_pnl
-from .portfolio import build_portfolio_stats
-from .risk import (
-    RiskState,
-    build_weekend_boundary,
-    calc_entry_price,
-    calc_qty,
-    calc_sl_tp,
-    eval_exit,
-    init_risk_state,
-    on_new_day,
-    update_after_exit,
-)
-
-# analytics helpers
-from .snapshots import build_entry_snapshot_frame
-
-
-def _parse_list(value: str | None) -> List[str]:
-    if not value:
-        return []
-    return [item.strip() for item in value.split(",") if item.strip()]
-
+# Import the runner orchestrator to delegate multi-symbol backtest execution.
+from .runner import run_range_backtest as _run_range_backtest
 
 # Import the canonical trade dataclass from the contracts module.  This
 # centralizes the definition of trade records and decouples data structures
 # from the backtest orchestration logic.  Importing it as Trade preserves the
 # original naming used throughout the module.
 from .contracts import TradeRecord as Trade
-# Import data and configuration helpers from the dedicated I/O module.  These
-# functions encapsulate loading of range parameters, symbol discovery and OHLCV
-# data retrieval.  Centralizing them in ``data_io`` removes low-level file I/O
-# concerns from this orchestration layer and supports easier testing.
+
 from .data_io import (
     _load_range_config,
     _list_available_symbols,
@@ -62,8 +22,12 @@ from .data_io import (
     _load_ohlcv,
 )
 
-# Import the runner orchestrator to delegate multi-symbol backtest execution.
-from .runner import run_range_backtest as _run_range_backtest
+
+def _parse_list(value: str | None) -> List[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
 
 
 
@@ -75,10 +39,7 @@ def _run_trades_from_signals(
     entry_allow_mask: Optional[pd.Series] = None,
     no_hold_weekend: bool = False,
 ) -> Tuple[List[Trade], Dict[str, Any]]:
-    # Delegate the execution logic to the implementation in the execution module.
-    # This early return bypasses the heavy logic below and decouples trade loop
-    # from the backtest orchestrator. All code following this return is preserved
-    # only for backward compatibility and will never execute in this configuration.
+    # Delegate all trade execution to the dedicated implementation.
     return run_trades_from_signals_impl(
         symbol,
         df_sig,
@@ -375,94 +336,17 @@ def _trades_to_df(trades: List[Trade]) -> pd.DataFrame:
     return trades_to_df(trades)
 
 
-def _run_symbol_task(
-    args: tuple[
-        str,
-        str,
-        float,
-        RangeV3Params,
-        str,
-        str,
-        str,
-        str,
-        float,
-        float,
-        str,
-        str,
-        float,
-        float,
-        float,
-        bool,
-        List[str],
-    ],
-) -> tuple[str, Dict[str, Any] | None, pd.DataFrame]:
-    (
-        symbol,
-        interval,
-        equity0,
-        params,
-        out_prefix,
-        tag,
-        entry_model_path,
-        entry_model_mode,
-        entry_model_threshold,
-        entry_model_top_pct,
-        entry_model_trend_path,
-        entry_model_trend_mode,
-        entry_model_trend_threshold,
-        entry_model_trend_top_pct,
-        entry_trend_slope_k,
-        no_hold_weekend,
-        entry_feature_cols,
-    ) = args
-    try:
-        df = _load_ohlcv(symbol, interval)
-    except FileNotFoundError:
-        return symbol, None, pd.DataFrame()
+def _run_symbol_task(*args, **kwargs):  # type: ignore[override]
+    """Deprecated placeholder for the per-symbol backtest task.
 
-    sig_df, debug_info = run_core_for_symbol(df, params)
-    entry_allow_mask, entry_ai_stats = _apply_entry_ai_filter(
-        sig_df,
-        params,
-        entry_model_path,
-        entry_model_mode,
-        entry_model_threshold,
-        entry_model_top_pct,
-        entry_model_trend_path,
-        entry_model_trend_mode,
-        entry_model_trend_threshold,
-        entry_model_trend_top_pct,
-        entry_trend_slope_k,
-        entry_feature_cols,
+    This function is no longer used in the core backtest implementation.  It
+    remains here only for backward compatibility and will raise a
+    NotImplementedError if invoked.  Use ``runner.run_symbol_task`` instead.
+    """
+    raise NotImplementedError(
+        "_run_symbol_task has been removed from app2.range.core.backtest;"
+        " use runner.run_symbol_task instead."
     )
-    trades, metrics = _run_trades_from_signals(
-        symbol,
-        sig_df,
-        params,
-        equity0,
-        entry_allow_mask=entry_allow_mask,
-        no_hold_weekend=no_hold_weekend,
-    )
-    if entry_ai_stats:
-        metrics.update(entry_ai_stats)
-    # Save per-symbol outputs (stats, trades, snapshots, debug) using the reporting module
-    save_symbol_outputs(
-        out_prefix=out_prefix,
-        symbol=symbol,
-        interval=interval,
-        tag=tag,
-        metrics=metrics,
-        trades=trades,
-        debug_info=debug_info,
-        sig_df=sig_df,
-    )
-
-    trades_df = _trades_to_df(trades)
-    print(
-        f"[range-v3] {symbol}: trades={len(trades)} "
-        f"pf={metrics['pf']:.3f} win_rate={metrics['win_rate']:.3f}"
-    )
-    return symbol, metrics, trades_df
 
 
 def main(args):

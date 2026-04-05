@@ -227,14 +227,45 @@ def _run_entry(
     model_path: Path,
 ) -> Dict[str, object]:
     df = pd.read_csv(entry_path)
-    label_col = "pnl_rel"
-    entry_mode = "trades"
-    if "y_entry" in df.columns:
-        label_col = "y_entry"
-        entry_mode = "candidates"
-        df = df[df[label_col].notna()].copy()
-        df[label_col] = pd.to_numeric(df[label_col], errors="coerce").fillna(0).astype(int)
-    else:
+    # Determine dataset type (trades vs candidates) from the accompanying meta
+    # file if available.  This prevents accidental mixing of research and policy
+    # datasets.  Fallback to heuristics based on column presence when meta is
+    # missing.
+    entry_mode: str = "trades"
+    meta_path = None
+    try:
+        p = Path(entry_path)
+        # Replace .csv suffix with _meta.json; robust if file names contain
+        # multiple dots
+        meta_path = p.with_name(p.stem + "_meta.json")
+        if meta_path.exists():
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            # truth_policy field overrides entry_mode; fallback to old key
+            entry_mode = str(meta.get("truth_policy", meta.get("entry_mode", "trades")))
+    except Exception:
+        # meta not available or invalid; will rely on heuristics below
+        entry_mode = "trades"
+    # Column-based heuristics: preserve legacy behaviour if meta is absent or ambiguous
+    label_col: str = "pnl_rel"
+    if entry_mode == "candidates" or "y_entry" in df.columns:
+        # Candidate datasets are expected to have ``y_entry`` and entry_ret columns
+        if "y_entry" in df.columns:
+            label_col = "y_entry"
+            entry_mode = "candidates"
+            df = df[df[label_col].notna()].copy()
+            df[label_col] = pd.to_numeric(df[label_col], errors="coerce").fillna(0).astype(int)
+        else:
+            # If candidate mode but label missing, interpret binary target from entry_ret
+            entry_mode = "candidates"
+            if "entry_ret" in df.columns:
+                label_col = "y_entry"
+                df[label_col] = (pd.to_numeric(df["entry_ret"], errors="coerce") > 0).astype(int)
+            else:
+                # fallback to trades behaviour
+                entry_mode = "trades"
+    if entry_mode != "candidates":
+        # Trades datasets: derive y_profit target from pnl_rel
         df = df[df["pnl_rel"].notna()].copy()
         df["y_profit"] = (df["pnl_rel"] > 0).astype(int)
         label_col = "y_profit"

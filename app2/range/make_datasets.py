@@ -263,13 +263,21 @@ def main(args):
         entry_path = f"{out_prefix}_entry_snapshots.csv"
         entry_df.to_csv(entry_path, index=False)
 
+        # Compose a richer manifest for the entry snapshots dataset.  This
+        # includes the dataset kind (entry), truth policy (trades) and
+        # optionally the original range config path.  Adding these fields
+        # clarifies the intended use of the dataset and supports downstream
+        # validation in training/inference pipelines.
         meta = {
+            "dataset_kind": "entry",
+            "truth_policy": "trades",
             "symbols": symbols,
             "interval": interval,
             "out_prefix": out_prefix,
             "tag": tag,
             "entry_rows": int(len(entry_df)),
             "entry_mode": "trades",
+            "config_path": config_range,
         }
         meta_path = f"{out_prefix}_entry_snapshots_meta.json"
         with open(meta_path, "w", encoding="utf-8") as f:
@@ -282,7 +290,13 @@ def main(args):
         entry_path = f"{out_prefix}_entry_candidates.csv"
         entry_candidates_df.to_csv(entry_path, index=False)
 
+        # Compose a richer manifest for the entry candidates dataset.  The
+        # "truth_policy" field identifies this as a research dataset.  The
+        # additional fields capture the labeling configuration used during
+        # generation (horizon, threshold, label_mode, quantiles, etc.).
         meta = {
+            "dataset_kind": "entry",
+            "truth_policy": "candidates",
             "symbols": symbols,
             "interval": interval,
             "out_prefix": out_prefix,
@@ -298,6 +312,7 @@ def main(args):
             "entry_quantile_drop_middle": entry_quantile_drop_middle,
             "entry_zone_alpha": entry_zone_alpha,
             "shadow_pct": shadow_pct,
+            "config_path": config_range,
         }
         meta_path = f"{out_prefix}_entry_candidates_meta.json"
         with open(meta_path, "w", encoding="utf-8") as f:
@@ -310,7 +325,10 @@ def main(args):
         intrade_path = f"{out_prefix}_intrade_timeseries.csv"
         intrade_df.to_csv(intrade_path, index=False)
 
+        # Manifest for intrade timeseries includes dataset kind and truth policy.
         meta = {
+            "dataset_kind": "intrade",
+            "truth_policy": "trades",
             "symbols": symbols,
             "interval": interval,
             "out_prefix": out_prefix,
@@ -318,6 +336,7 @@ def main(args):
             "intrade_rows": int(len(intrade_df)),
             "exit_improve_threshold": exit_improve_threshold,
             "exit_min_bars": exit_min_bars,
+            "config_path": config_range,
         }
         meta_path = f"{out_prefix}_intrade_timeseries_meta.json"
         with open(meta_path, "w", encoding="utf-8") as f:
