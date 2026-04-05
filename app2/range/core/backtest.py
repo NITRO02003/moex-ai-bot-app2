@@ -14,6 +14,9 @@ from ..range_v3 import RangeV3Params
 from .entry_gating import apply_entry_ai_filter as _apply_entry_ai_filter
 from .execution import run_trades_from_signals as run_trades_from_signals_impl
 
+# Reporting utilities: convert trades to DataFrames and write outputs
+from .reporting import trades_to_df as _report_trades_to_df, save_symbol_outputs, save_portfolio_outputs
+
 # Default list of compact features for entry gating.  Still required for CLI default argument.
 from ..baseline_ml import COMPACT_FEATURES
 
@@ -358,58 +361,15 @@ def _run_trades_from_signals(
 
 
 def _trades_to_df(trades: List[Trade]) -> pd.DataFrame:
-    if not trades:
-        return pd.DataFrame(
-            columns=[
-                "symbol",
-                "side",
-                "entry_time",
-                "exit_time",
-                "entry_price",
-                "exit_price",
-                "qty",
-                "pnl",
-                "pnl_rel",
-                "bars_held",
-                "entry_reason",
-                "exit_reason",
-                "post_circuit_breaker",
-                "entry_geo_class",
-                "entry_geo_valid_box",
-                "entry_geo_h_pct",
-                "entry_atr_pct",
-                "entry_slope_pct_per_bar",
-                "entry_dist_L_pct",
-                "entry_dist_U_pct",
-            ]
-        )
-    rows = []
-    for t in trades:
-        rows.append(
-            {
-                "symbol": t.symbol,
-                "side": t.side,
-                "entry_time": t.entry_time,
-                "exit_time": t.exit_time,
-                "entry_price": t.entry_price,
-                "exit_price": t.exit_price,
-                "qty": t.qty,
-                "pnl": t.pnl,
-                "pnl_rel": t.pnl_rel,
-                            "bars_held": t.bars_held,
-                "entry_reason": t.entry_reason,
-                "exit_reason": t.exit_reason,
-                "post_circuit_breaker": t.post_circuit_breaker,
-                "entry_geo_class": t.entry_geo_class,
-                "entry_geo_valid_box": t.entry_geo_valid_box,
-                "entry_geo_h_pct": t.entry_geo_h_pct,
-                "entry_atr_pct": t.entry_atr_pct,
-                "entry_slope_pct_per_bar": t.entry_slope_pct_per_bar,
-                "entry_dist_L_pct": t.entry_dist_L_pct,
-                "entry_dist_U_pct": t.entry_dist_U_pct,
-            }
-        )
-    return pd.DataFrame(rows)
+    """Delegate conversion of trades to DataFrame to the reporting module.
+
+    This thin wrapper preserves the original name while forwarding to
+    ``reporting.trades_to_df``. Keeping this stub simplifies migration
+    until all internal calls are updated to use the new reporting module.
+    """
+    # Import locally to avoid cyclic import issues at module import time
+    from .reporting import trades_to_df
+    return trades_to_df(trades)
 
 
 def _run_symbol_task(
@@ -482,23 +442,19 @@ def _run_symbol_task(
     )
     if entry_ai_stats:
         metrics.update(entry_ai_stats)
-
-    base = f"{out_prefix}_{symbol}_{interval}_{tag}"
-    stats_path = f"{base}_stats.json"
-    with open(stats_path, "w", encoding="utf-8") as f:
-        json.dump(metrics, f, ensure_ascii=False, indent=2)
+    # Save per-symbol outputs (stats, trades, snapshots, debug) using the reporting module
+    save_symbol_outputs(
+        out_prefix=out_prefix,
+        symbol=symbol,
+        interval=interval,
+        tag=tag,
+        metrics=metrics,
+        trades=trades,
+        debug_info=debug_info,
+        sig_df=sig_df,
+    )
 
     trades_df = _trades_to_df(trades)
-    trades_path = f"{base}_trades.csv"
-    trades_df.to_csv(trades_path, index=False)
-
-    snaps_path = f"{base}_snapshots.csv"
-    sig_df.to_csv(snaps_path)
-
-    debug_path = f"{base}_debug.json"
-    with open(debug_path, "w", encoding="utf-8") as f:
-        json.dump(debug_info, f, ensure_ascii=False, indent=2)
-
     print(
         f"[range-v3] {symbol}: trades={len(trades)} "
         f"pf={metrics['pf']:.3f} win_rate={metrics['win_rate']:.3f}"
@@ -575,22 +531,12 @@ def main(args):
     # Aggregated portfolio stats
     if all_trades_df_list:
         all_trades_df = pd.concat(all_trades_df_list, ignore_index=True)
-        pnl_vals = all_trades_df["pnl"].tolist()
-        base_all = f"{out_prefix}_ALL_{interval}_{tag}"
-        stats_all_path = f"{base_all}_stats.json"
-        trades_all_path = f"{base_all}_trades.csv"
-        per_symbol_path = f"{base_all}_per_symbol_stats.csv"
-
-        portfolio_stats = build_portfolio_stats(
-            pnls=pnl_vals,
+        # Persist aggregated stats and combined trades using reporting module
+        save_portfolio_outputs(
+            out_prefix=out_prefix,
+            interval=interval,
+            tag=tag,
             equity0=equity0,
-            symbols=[m["symbol"] for m in all_symbol_metrics],
+            all_symbol_metrics=all_symbol_metrics,
+            all_trades_df=all_trades_df,
         )
-
-        with open(stats_all_path, "w", encoding="utf-8") as f:
-            json.dump(portfolio_stats, f, ensure_ascii=False, indent=2)
-
-        all_trades_df.to_csv(trades_all_path, index=False)
-
-        per_symbol_df = pd.DataFrame(all_symbol_metrics)
-        per_symbol_df.to_csv(per_symbol_path, index=False)
