@@ -35,33 +35,11 @@ def _parse_list(value: str | None) -> List[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-@dataclass
-class Trade:
-    symbol: str
-    side: int  # +1 / -1
-    entry_time: pd.Timestamp
-    exit_time: pd.Timestamp
-    entry_price: float
-    exit_price: float
-    qty: float
-    pnl: float
-    pnl_rel: float
-    bars_held: int
-
-
-
-    entry_reason: Optional[str] = None
-    exit_reason: Optional[str] = None
-    post_circuit_breaker: Optional[bool] = None
-
-    # Entry snapshot (analytics; may be NaN/None if not available)
-    entry_geo_class: Optional[str] = None
-    entry_geo_valid_box: Optional[bool] = None
-    entry_geo_h_pct: Optional[float] = None
-    entry_atr_pct: Optional[float] = None
-    entry_slope_pct_per_bar: Optional[float] = None
-    entry_dist_L_pct: Optional[float] = None
-    entry_dist_U_pct: Optional[float] = None
+# Import the canonical trade dataclass from the contracts module.  This
+# centralizes the definition of trade records and decouples data structures
+# from the backtest orchestration logic.  Importing it as Trade preserves the
+# original naming used throughout the module.
+from .contracts import TradeRecord as Trade
 def _load_range_config(path: str) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
