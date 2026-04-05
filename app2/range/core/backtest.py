@@ -62,6 +62,9 @@ from .data_io import (
     _load_ohlcv,
 )
 
+# Import the runner orchestrator to delegate multi-symbol backtest execution.
+from .runner import run_range_backtest as _run_range_backtest
+
 
 
 def _run_trades_from_signals(
@@ -463,80 +466,7 @@ def _run_symbol_task(
 
 
 def main(args):
-    symbols: List[str] = list(args.symbols)
-    interval: str = args.interval
-    equity0: float = float(args.equity0)
-    cfg_path: str = args.config_range
-    out_prefix: str = args.out_prefix
-    tag: str = getattr(args, "tag", "rangeV3")
-    n_jobs = getattr(args, "n_jobs", None)
-    entry_model_path = str(getattr(args, "entry_model_path", "") or "")
-    entry_model_mode = str(getattr(args, "entry_model_mode", "off"))
-    entry_model_threshold = float(getattr(args, "entry_model_threshold", 0.5))
-    entry_model_top_pct = float(getattr(args, "entry_model_top_pct", 0.3))
-    entry_model_trend_path = str(getattr(args, "entry_model_trend_path", "") or "")
-    entry_model_trend_mode = str(getattr(args, "entry_model_trend_mode", "off"))
-    entry_model_trend_threshold = float(getattr(args, "entry_model_trend_threshold", 0.5))
-    entry_model_trend_top_pct = float(getattr(args, "entry_model_trend_top_pct", 0.3))
-    entry_trend_slope_k = float(getattr(args, "entry_trend_slope_k", 0.0))
-    no_hold_weekend = bool(getattr(args, "no_hold_weekend", False))
-    entry_feature_cols = _parse_list(getattr(args, "entry_feature_include", ""))
-    if not entry_feature_cols:
-        entry_feature_cols = COMPACT_FEATURES
-
-    params_cfg = _load_range_config(cfg_path)
-    params = RangeV3Params(params_cfg)
-
-    out_dir = os.path.dirname(out_prefix) or "."
-    os.makedirs(out_dir, exist_ok=True)
-
-    if any(str(s).lower() == "all" for s in symbols):
-        symbols = _list_available_symbols(interval)
-
-    all_symbol_metrics: List[Dict[str, Any]] = []
-    all_trades_df_list: List[pd.DataFrame] = []
-
-    if entry_trend_slope_k <= 0:
-        entry_trend_slope_k = float(getattr(params, "slope_k", 0.0) or 0.0) * 0.5
-
-    tasks = [
-        (
-            symbol,
-            interval,
-            equity0,
-            params,
-            out_prefix,
-            tag,
-            entry_model_path,
-            entry_model_mode,
-            entry_model_threshold,
-            entry_model_top_pct,
-            entry_model_trend_path,
-            entry_model_trend_mode,
-            entry_model_trend_threshold,
-            entry_model_trend_top_pct,
-            entry_trend_slope_k,
-            no_hold_weekend,
-            entry_feature_cols,
-        )
-        for symbol in symbols
-    ]
-    for symbol, metrics, trades_df in parallel_map(tasks, _run_symbol_task, n_jobs=n_jobs):
-        if metrics is None:
-            continue
-        all_symbol_metrics.append(metrics)
-        if not trades_df.empty:
-            all_trades_df_list.append(trades_df)
-
-    # Aggregated portfolio stats
-    if all_trades_df_list:
-        all_trades_df = pd.concat(all_trades_df_list, ignore_index=True)
-        # Persist aggregated stats and combined trades using reporting module
-        save_portfolio_outputs(
-            out_prefix=out_prefix,
-            interval=interval,
-            tag=tag,
-            equity0=equity0,
-            all_symbol_metrics=all_symbol_metrics,
-            all_trades_df=all_trades_df,
-        )
+    # Offload orchestration to the runner.  This function will build per-symbol
+    # tasks, run them (optionally in parallel), aggregate results and write
+    # out portfolio-level outputs.  Any return value is ignored.
+    return _run_range_backtest(args)
