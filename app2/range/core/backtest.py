@@ -40,95 +40,16 @@ def _parse_list(value: str | None) -> List[str]:
 # from the backtest orchestration logic.  Importing it as Trade preserves the
 # original naming used throughout the module.
 from .contracts import TradeRecord as Trade
-def _load_range_config(path: str) -> Dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as f:
-        cfg = json.load(f)
-    range_cfg = cfg.get("RangeV3", {})
-    params = dict(range_cfg.get("params", {}))
-    profile_name = str(range_cfg.get("risk_profile", "") or "")
-    profiles = range_cfg.get("risk_profiles", {})
-    if profile_name and isinstance(profiles, dict):
-        overrides = profiles.get(profile_name)
-        if isinstance(overrides, dict):
-            params.update(overrides)
-    return params
-
-
-def _list_available_symbols(interval: str) -> List[str]:
-    symbols: List[str] = []
-    processed_dir = Path("processed")
-    data_dir = Path("data")
-    if processed_dir.exists():
-        for p in processed_dir.glob(f"*_{interval}.csv"):
-            name = p.name
-            if name.endswith(f"_{interval}.csv"):
-                symbols.append(name[: -len(f"_{interval}.csv")])
-    if data_dir.exists():
-        for p in data_dir.glob("*.csv"):
-            symbols.append(p.stem)
-    return sorted(set(symbols))
-
-
-def _find_data_path(symbol: str, interval: str) -> str:
-    """
-    Prefer processed/{symbol}_{interval}.csv, otherwise data/{symbol}.csv
-    """
-    fname_processed = os.path.join("processed", f"{symbol}_{interval}.csv")
-    fname_data = os.path.join("data", f"{symbol}.csv")
-    if os.path.exists(fname_processed):
-        return fname_processed
-    if os.path.exists(fname_data):
-        return fname_data
-    raise FileNotFoundError(f"Cannot find data for {symbol}: tried {fname_processed} and {fname_data}")
-
-
-def _load_ohlcv(symbol: str, interval: str) -> pd.DataFrame:
-    path = _find_data_path(symbol, interval)
-    df = pd.read_csv(path)
-
-    # try to infer datetime column
-    dt_col = None
-    for c in df.columns:
-        lc = c.lower()
-        if "time" in lc or "date" in lc or "dt" in lc:
-            dt_col = c
-            break
-    if dt_col is None:
-        for c in df.columns:
-            lc = c.lower()
-            if lc in ("begin", "end", "timestamp", "ts"):
-                dt_col = c
-                break
-    if dt_col is None:
-        dt_col = df.columns[0]
-
-    df[dt_col] = pd.to_datetime(df[dt_col])
-    df = df.sort_values(dt_col).reset_index(drop=True)
-    df = df.set_index(dt_col)
-
-    # normalize column names
-    rename_map: Dict[str, str] = {}
-    for c in df.columns:
-        lc = c.lower()
-        if lc.startswith("open"):
-            rename_map[c] = "open"
-        elif lc.startswith("high"):
-            rename_map[c] = "high"
-        elif lc.startswith("low"):
-            rename_map[c] = "low"
-        elif lc.startswith("close"):
-            rename_map[c] = "close"
-        elif lc.startswith("vol"):
-            rename_map[c] = "volume"
-    df = df.rename(columns=rename_map)
-
-    for col in ["open", "high", "low", "close"]:
-        if col not in df.columns:
-            raise ValueError(f"Data for {symbol} missing required column '{col}' in {path}")
-    if "volume" not in df.columns:
-        df["volume"] = 0.0
-
-    return df
+# Import data and configuration helpers from the dedicated I/O module.  These
+# functions encapsulate loading of range parameters, symbol discovery and OHLCV
+# data retrieval.  Centralizing them in ``data_io`` removes low-level file I/O
+# concerns from this orchestration layer and supports easier testing.
+from .data_io import (
+    _load_range_config,
+    _list_available_symbols,
+    _find_data_path,
+    _load_ohlcv,
+)
 
 
 
