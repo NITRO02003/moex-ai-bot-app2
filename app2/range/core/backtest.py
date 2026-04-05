@@ -28,6 +28,9 @@ from .risk import (
     update_after_exit,
 )
 
+# analytics helpers
+from .snapshots import build_entry_snapshot_frame
+
 
 def _parse_list(value: str | None) -> List[str]:
     if not value:
@@ -87,46 +90,20 @@ def _run_trades_from_signals(
     signals = signals.fillna(0).astype(int)
     weekend_boundary = build_weekend_boundary(df_sig.index) if no_hold_weekend else None
     # --- analytics: precompute entry snapshot features (does NOT affect trading logic) ---
-    window = int(getattr(params, "range_window_bars", 20) or 20)
-
-    # Geometry (preferred) or fallback to v3_L/v3_U/v3_M columns if present
-    geo_L = geo_U = geo_H = geo_M = geo_valid_box = geo_class = None
-    try:
-        from .geometry import compute_geometry  # local import to avoid circular deps
-
-        df_geo = compute_geometry(df_sig, params)
-        geo_L = df_geo.get("geo_L")
-        geo_U = df_geo.get("geo_U")
-        geo_H = df_geo.get("geo_H")
-        geo_M = df_geo.get("geo_M")
-        geo_valid_box = df_geo.get("geo_valid_box")
-        geo_class = df_geo.get("geo_class")
-    except Exception:
-        pass
-
-    base_L = geo_L if geo_L is not None else (df_sig["v3_L"] if "v3_L" in df_sig.columns else None)
-    base_U = geo_U if geo_U is not None else (df_sig["v3_U"] if "v3_U" in df_sig.columns else None)
-    base_M = geo_M if geo_M is not None else (df_sig["v3_M"] if "v3_M" in df_sig.columns else df_sig["close"])
-    base_H = geo_H if geo_H is not None else ((base_U - base_L) if (base_L is not None and base_U is not None) else None)
-
-    # ATR pct (causal) from OHLC
-    close = df_sig["close"]
-    prev_close = close.shift(1)
-    tr1 = (df_sig["high"] - df_sig["low"]).abs()
-    tr2 = (df_sig["high"] - prev_close).abs()
-    tr3 = (df_sig["low"] - prev_close).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=window, min_periods=1).mean()
-    atr_pct = atr / close.replace(0, np.nan).abs()
-
-    # Slope pct per bar of midline (causal)
-    slope = (base_M - base_M.shift(window)) / float(window)
-    slope_pct_per_bar = slope / close.replace(0, np.nan).abs()
-
-    # Range height pct proxy (causal)
-    geo_h_pct = None
-    if base_H is not None:
-        geo_h_pct = base_H / close.replace(0, np.nan).abs()
+    # Delegate calculation of geometry, ATR, slope and distance features to snapshots module.
+    snapshot_df = build_entry_snapshot_frame(df_sig, params)
+    geo_class = snapshot_df["geo_class"]
+    geo_valid_box = snapshot_df["geo_valid_box"]
+    geo_h_pct = snapshot_df["geo_h_pct"]
+    atr_pct = snapshot_df["atr_pct"]
+    slope_pct_per_bar = snapshot_df["slope_pct_per_bar"]
+    dist_L_pct = snapshot_df["dist_L_pct"]
+    dist_U_pct = snapshot_df["dist_U_pct"]
+    # Base range levels for entry distance calculation.  These columns are
+    # populated by the state machine (rolling range levels).  If absent,
+    # distance to L/U at entry cannot be computed.
+    base_L = df_sig["v3_L"] if "v3_L" in df_sig.columns else None
+    base_U = df_sig["v3_U"] if "v3_U" in df_sig.columns else None
 
     max_consecutive_losses = getattr(params, "max_consecutive_losses", None)
     daily_dd_limit_pct = getattr(params, "daily_dd_limit_pct", None)
