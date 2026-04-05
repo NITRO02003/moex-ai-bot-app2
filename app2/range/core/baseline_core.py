@@ -39,6 +39,16 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--symbols-file",
+        type=str,
+        default="baseline_symbols.txt",
+        help=(
+            "Optional path to a file containing a whitespace- or comma-separated list of symbols."
+            " If specified and --symbols is not provided or set to 'all', the baseline will run on"
+            " symbols from this file. Defaults to 'baseline_symbols.txt' in the project root."
+        ),
+    )
+    parser.add_argument(
         "--interval",
         type=str,
         default="30min",
@@ -85,8 +95,27 @@ def main() -> int:
     # Prepare namespace for runner.run_range_backtest.  We reuse the same
     # attributes as the CLI backtest uses; unused attributes (e.g. entry_model)
     # will be supplied with defaults inside run_range_backtest.
+    # Determine symbols list. If symbols is default ['all'] and a symbols file is provided and exists,
+    # load tickers from the file. Otherwise use args.symbols as is.
+    symbols_list: List[str] = args.symbols
+    try:
+        # only override if user did not explicitly provide custom list
+        if len(args.symbols) == 1 and args.symbols[0].lower() == "all":
+            from pathlib import Path
+
+            sym_file = Path(args.symbols_file)
+            if sym_file.exists():
+                text = sym_file.read_text(encoding="utf-8")
+                # split on whitespace or commas
+                raw = [t.strip() for t in text.replace(",", " ").split() if t.strip()]
+                if raw:
+                    symbols_list = raw
+    except Exception:
+        # If any error occurs, fall back to provided symbols
+        symbols_list = args.symbols
+
     run_args = SimpleNamespace(
-        symbols=args.symbols,
+        symbols=symbols_list,
         interval=args.interval,
         equity0=args.equity0,
         config_range=args.config_range,

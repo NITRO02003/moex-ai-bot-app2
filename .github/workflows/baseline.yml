@@ -1,0 +1,58 @@
+name: baseline-and-gating
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # install project dependencies; adjust as needed
+          pip install -r requirements.txt
+      - name: Run baseline backtest
+        run: |
+          # Run baseline for default symbols list loaded from baseline_symbols.txt
+          python -m app2.cli range-core-baseline \
+            --symbols-file baseline_symbols.txt \
+            --interval 30min \
+            --equity0 1000000 \
+            --config-range app2/range/config.json \
+            --out-prefix-root out/range_v3_baseline_ci \
+            --tag ci_baseline
+      - name: Run gating backtest (no gating)
+        run: |
+          # run the same backtest as baseline but specify explicit symbol list and out prefix
+          # gating options remain off to provide a comparable run
+          SYMS=$(tr '\n' ' ' < baseline_symbols.txt)
+          python -m app2.cli range-v3-backtest \
+            --symbols $SYMS \
+            --interval 30min \
+            --equity0 1000000 \
+            --config-range app2/range/config.json \
+            --out-prefix out/range_v3_model_ci \
+            --tag ci_model \
+            --engine core \
+            --entry-model-mode off
+      - name: Evaluate gating impact
+        run: |
+          python -m app2.cli range-gating-eval \
+            --baseline-stats out/range_v3_baseline_ci_ALL_30min_ci_baseline_stats.json \
+            --current-stats out/range_v3_model_ci_ALL_30min_ci_model_stats.json \
+            --baseline-trades out/range_v3_baseline_ci_ALL_30min_ci_baseline_trades.csv \
+            --current-trades out/range_v3_model_ci_ALL_30min_ci_model_trades.csv \
+            --out out/range_v3_gating_ci_eval.json
+      - name: Upload baseline and evaluation artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: range-baseline-ci
+          path: out

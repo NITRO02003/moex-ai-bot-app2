@@ -216,19 +216,21 @@ def cmd_range_feature_sweep(args):
 
 
 def cmd_range_v3_backtest(args):
-    """Range V3 strategy backtest.
+    """Run a Range V3 backtest.
 
-    --engine legacy|core:
-      - legacy: use frozen Range V3 implementation (range_v3_legacy + v3_backtest_legacy)
-      - core:   future core_v4 engine (not implemented yet)
+    The ``--engine`` flag selects between the archived legacy engine and the
+    modern core implementation.  The default is ``core`` because the core
+    engine is the only supported path going forward.  The legacy option
+    remains available for reference but is no longer maintained.
     """
     import importlib
 
-    engine = getattr(args, "engine", "legacy")
+    # Default to the core engine; the legacy option remains for reference only
+    engine = getattr(args, "engine", "core")
     if engine == "legacy":
         mod_name = "app2.range.v3_backtest_legacy"
     elif engine == "core":
-        # core_v4 engine: offline scaffold in app2.range.core.backtest
+        # Core engine entry point delegates to runner.run_range_backtest
         mod_name = "app2.range.core.backtest"
     else:
         raise ValueError(f"Unknown range-v3 engine: {engine}")
@@ -242,6 +244,161 @@ def cmd_range_debug_segments(args):
     from .range import debug_segments
 
     return debug_segments.main(args)
+
+# New command wrappers for baseline and gating evaluation
+def cmd_range_core_baseline(args):
+    """Generate a baseline run for the core range strategy.
+
+    This command runs the range core backtester on a set of symbols and
+    timeframes without any AI gating.  The results are saved under the
+    provided output prefix root and tagged accordingly.  It is intended to
+    create an immutable reference for subsequent comparisons.
+    """
+    from types import SimpleNamespace
+    # Deferred import to avoid heavy startup costs unless used
+    from .range.core.runner import run_range_backtest
+
+    # Determine symbols: if user requested 'all' and a symbols-file is provided, load symbols from it
+    symbols_list = args.symbols
+    try:
+        if len(args.symbols) == 1 and args.symbols[0].lower() == "all":
+            from pathlib import Path
+            sym_file = Path(getattr(args, "symbols_file", "baseline_symbols.txt"))
+            if sym_file.exists():
+                text = sym_file.read_text(encoding="utf-8")
+                raw = [t.strip() for t in text.replace(",", " ").split() if t.strip()]
+                if raw:
+                    symbols_list = raw
+    except Exception:
+        symbols_list = args.symbols
+
+    # Build namespace compatible with runner.run_range_backtest
+    run_args = SimpleNamespace(
+        symbols=symbols_list,
+        interval=args.interval,
+        equity0=args.equity0,
+        config_range=args.config_range,
+        out_prefix=args.out_prefix_root,
+        tag=args.tag,
+        n_jobs=args.n_jobs,
+        # Default AI gating fields (not used in baseline)
+        entry_model_path="",
+        entry_model_mode="off",
+        entry_model_threshold=0.5,
+        entry_model_top_pct=0.3,
+        entry_model_trend_path="",
+        entry_model_trend_mode="off",
+        entry_model_trend_threshold=0.5,
+        entry_model_trend_top_pct=0.3,
+        entry_trend_slope_k=0.0,
+        entry_feature_include="",
+        no_hold_weekend=False,
+    )
+    run_range_backtest(run_args)
+    print(
+        f"[range-core-baseline] completed baseline for {symbols_list} at {args.interval}. "
+        f"Outputs saved under prefix {args.out_prefix_root}."
+    )
+    return 0
+
+
+def cmd_range_gating_eval(args):
+    """Evaluate the impact of AI entry gating versus a baseline run.
+
+    This command compares aggregate statistics and trade counts from a baseline
+    (no-gating) run to a current run that may include AI gating.  It computes
+    coverage (the fraction of baseline trades retained), and deltas for
+    profit factor, win rate and maximum drawdown.  The results are saved to
+    the provided output JSON file and a brief summary is printed.
+    """
+    import json
+    from pathlib import Path
+    import pandas as pd
+
+    baseline_stats_path = Path(args.baseline_stats)
+    current_stats_path = Path(args.current_stats)
+    baseline_trades_path = Path(args.baseline_trades)
+    current_trades_path = Path(args.current_trades)
+    out_path = Path(args.out)
+
+    # Load stats
+    try:
+        with baseline_stats_path.open("r", encoding="utf-8") as f:
+            baseline_stats = json.load(f)
+    except FileNotFoundError:
+        raise SystemExit(f"Baseline stats file not found: {baseline_stats_path}")
+    try:
+        with current_stats_path.open("r", encoding="utf-8") as f:
+            current_stats = json.load(f)
+    except FileNotFoundError:
+        raise SystemExit(f"Current stats file not found: {current_stats_path}")
+
+    # Load trades
+    try:
+        baseline_trades_df = pd.read_csv(baseline_trades_path)
+    except FileNotFoundError:
+        raise SystemExit(f"Baseline trades file not found: {baseline_trades_path}")
+    try:
+        current_trades_df = pd.read_csv(current_trades_path)
+    except FileNotFoundError:
+        raise SystemExit(f"Current trades file not found: {current_trades_path}")
+
+    baseline_trade_count = int(len(baseline_trades_df))
+    current_trade_count = int(len(current_trades_df))
+    coverage = (
+        float(current_trade_count) / baseline_trade_count
+        if baseline_trade_count > 0
+        else 0.0
+    )
+
+    def _get_metric(stats: dict, key: str) -> float:
+        return float(stats.get(key, 0.0) or 0.0)
+
+    baseline_pf = _get_metric(baseline_stats, "pf")
+    current_pf = _get_metric(current_stats, "pf")
+    baseline_win_rate = _get_metric(baseline_stats, "win_rate")
+    current_win_rate = _get_metric(current_stats, "win_rate")
+    baseline_max_dd = _get_metric(baseline_stats, "max_drawdown")
+    current_max_dd = _get_metric(current_stats, "max_drawdown")
+
+    result = {
+        "baseline_trades": baseline_trade_count,
+        "current_trades": current_trade_count,
+        "coverage": coverage,
+        "baseline_pf": baseline_pf,
+        "current_pf": current_pf,
+        "pf_delta": current_pf - baseline_pf,
+        "baseline_win_rate": baseline_win_rate,
+        "current_win_rate": current_win_rate,
+        "win_rate_delta": current_win_rate - baseline_win_rate,
+        "baseline_max_drawdown": baseline_max_dd,
+        "current_max_drawdown": current_max_dd,
+        "max_drawdown_delta": current_max_dd - baseline_max_dd,
+    }
+
+    # Ensure output directory exists
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    print(
+        f"[gating-eval] coverage={coverage:.3f}, pf_delta={result['pf_delta']:.3f}, "
+        f"win_rate_delta={result['win_rate_delta']:.3f}, max_dd_delta={result['max_drawdown_delta']:.3f}"
+    )
+    print(f"[gating-eval] saved report to {out_path}")
+    return 0
+
+
+def cmd_range_core_summary(args):
+    """Build a summary CSV from core backtest stats files.
+
+    This command aggregates multiple core stats JSON files (each containing aggregate
+    portfolio metrics) into a single CSV or prints the summary to stdout if no
+    output path is given.  It is analogous to ``range-summary`` but for the core
+    engine.
+    """
+    from .range.core import summary_core as summary_mod
+    return summary_mod.main(args)
 
 
 def cmd_range_v3_make_datasets(args):
@@ -465,8 +622,8 @@ def main():
         "--engine",
         type=str,
         choices=["legacy", "core"],
-        default="legacy",
-        help="Range engine: 'legacy' (default) or 'core' (experimental, offline only)",
+        default="core",
+        help="Range engine: 'core' (default) or 'legacy' for archived reference",  # default changed to core
     )
     p_rv3.add_argument(
         "--entry-model-path",
@@ -986,6 +1143,120 @@ def main():
         help="Number of processes (0/<=0 = auto)",
     )
     p_rfs.set_defaults(func=cmd_range_feature_sweep)
+
+    # range-core-baseline
+    p_baseline = subparsers.add_parser(
+        "range-core-baseline",
+        help="Generate baseline metrics for the core range strategy",
+    )
+    p_baseline.add_argument(
+        "--symbols",
+        nargs="+",
+        default=["all"],
+        help="List of tickers to run or 'all' (default)",
+    )
+    p_baseline.add_argument(
+        "--interval",
+        type=str,
+        default="30min",
+        help="Timeframe to run backtests on (default: 30min)",
+    )
+    p_baseline.add_argument(
+        "--equity0",
+        type=float,
+        default=1_000_000.0,
+        help="Initial equity for baseline (default: 1,000,000)",
+    )
+    p_baseline.add_argument(
+        "--config-range",
+        type=str,
+        default="app2/range/config.json",
+        help="Path to the range strategy configuration JSON",
+    )
+    p_baseline.add_argument(
+        "--out-prefix-root",
+        type=str,
+        default="out/range_v3_baseline",
+        help="Root prefix for baseline outputs (default: out/range_v3_baseline)",
+    )
+    p_baseline.add_argument(
+        "--tag",
+        type=str,
+        default="baseline",
+        help="Tag appended to output files (default: baseline)",
+    )
+    p_baseline.add_argument(
+        "--n-jobs",
+        type=int,
+        default=0,
+        help="Number of parallel worker processes (0 = auto)",
+    )
+    p_baseline.add_argument(
+        "--symbols-file",
+        type=str,
+        default="baseline_symbols.txt",
+        help=(
+            "Optional path to a file containing symbols for baseline. If provided and --symbols is set to 'all',"
+            " the symbols in this file will be used instead. Defaults to 'baseline_symbols.txt' in project root."
+        ),
+    )
+    p_baseline.set_defaults(func=cmd_range_core_baseline)
+
+    # range-gating-eval
+    p_g_eval = subparsers.add_parser(
+        "range-gating-eval",
+        help="Evaluate AI gating impact against a baseline run",
+    )
+    p_g_eval.add_argument(
+        "--baseline-stats",
+        type=str,
+        required=True,
+        help="Path to aggregated stats JSON from baseline run",
+    )
+    p_g_eval.add_argument(
+        "--current-stats",
+        type=str,
+        required=True,
+        help="Path to aggregated stats JSON from current run",
+    )
+    p_g_eval.add_argument(
+        "--baseline-trades",
+        type=str,
+        required=True,
+        help="Path to aggregated trades CSV from baseline run",
+    )
+    p_g_eval.add_argument(
+        "--current-trades",
+        type=str,
+        required=True,
+        help="Path to aggregated trades CSV from current run",
+    )
+    p_g_eval.add_argument(
+        "--out",
+        type=str,
+        required=True,
+        help="Output path for JSON report with coverage and metric deltas",
+    )
+    p_g_eval.set_defaults(func=cmd_range_gating_eval)
+
+    # range-core-summary
+    p_csum = subparsers.add_parser(
+        "range-core-summary",
+        help="Build summary CSV from core stats JSON files",
+    )
+    p_csum.add_argument(
+        "--stats-glob",
+        type=str,
+        required=True,
+        help="Glob for core stats JSON files, e.g. 'out/range_v3_*_stats.json'",
+    )
+    p_csum.add_argument(
+        "--out",
+        type=str,
+        default="out/range_v3_core_summary.csv",
+        help="Path to summary CSV (default: out/range_v3_core_summary.csv)",
+    )
+    p_csum.set_defaults(func=cmd_range_core_summary)
 
 
 
