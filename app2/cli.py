@@ -302,6 +302,59 @@ def cmd_range_core_baseline(args):
     return 0
 
 
+# ---------------------------------------------------------------------------
+# New command wrappers for walk‑forward analysis and time series CV
+# ---------------------------------------------------------------------------
+
+def cmd_range_core_wfa(args):
+    """Run walk‑forward analysis on an aggregated trades CSV.
+
+    This command reads a trades CSV (typically the aggregated trades
+    produced by a baseline or model run), splits the timeline into
+    overlapping windows, computes portfolio statistics for each window and
+    writes the results to the specified output path (if provided).  It
+    serves to assess the temporal stability of a strategy's performance.
+    """
+    from .range.core.wfa import run_walk_forward_analysis
+
+    run_walk_forward_analysis(
+        trades_path=args.trades_path,
+        equity0=args.equity0,
+        window_days=args.window_days,
+        step_days=args.step_days,
+        out_path=args.out,
+    )
+    print(
+        f"[range-core-wfa] Completed walk‑forward analysis on {args.trades_path}; "
+        f"results saved to {args.out if args.out else 'not written'}."
+    )
+    return 0
+
+
+def cmd_range_core_cv(args):
+    """Run time series cross‑validation on an entry/intrade dataset.
+
+    This command splits a dataset into sequential time‑ordered folds,
+    trains a CatBoost classifier on each training portion and evaluates it
+    on the corresponding test portion.  It returns per‑fold metrics and
+    optionally writes them to a CSV or JSON file.
+    """
+    from .range.core.cv import run_time_series_cv, _parse_catboost_params
+
+    params = _parse_catboost_params(args.catboost_params)
+    run_time_series_cv(
+        dataset_path=args.dataset,
+        n_splits=args.n_splits,
+        catboost_params=params,
+        out_path=args.out,
+    )
+    print(
+        f"[range-core-cv] Completed time series CV on {args.dataset} with {args.n_splits} splits; "
+        f"results saved to {args.out if args.out else 'not written'}."
+    )
+    return 0
+
+
 def cmd_range_gating_eval(args):
     """Evaluate the impact of AI entry gating versus a baseline run.
 
@@ -399,12 +452,6 @@ def cmd_range_core_summary(args):
     """
     from .range.core import summary_core as summary_mod
     return summary_mod.main(args)
-
-
-def cmd_range_inference(args):
-    """Run offline entry inference from exported artifact + snapshots CSV."""
-    from .range.core import inference as inference_mod
-    return inference_mod.main(args)
 
 
 def cmd_range_v3_make_datasets(args):
@@ -1245,6 +1292,90 @@ def main():
     )
     p_g_eval.set_defaults(func=cmd_range_gating_eval)
 
+    # range-core-wfa
+    p_wfa = subparsers.add_parser(
+        "range-core-wfa",
+        help="Run walk‑forward analysis on aggregated trades"
+    )
+    p_wfa.add_argument(
+        "--trades-path",
+        type=str,
+        required=True,
+        help=(
+            "Path to the aggregated trades CSV (e.g. '*_ALL_*_trades.csv') to run the walk‑forward analysis on."
+        ),
+    )
+    p_wfa.add_argument(
+        "--equity0",
+        type=float,
+        default=1_000_000.0,
+        help=(
+            "Initial equity used to compute total returns. Defaults to 1,000,000."
+        ),
+    )
+    p_wfa.add_argument(
+        "--window-days",
+        type=int,
+        default=90,
+        help="Length of each walk‑forward window in days (default: 90)",
+    )
+    p_wfa.add_argument(
+        "--step-days",
+        type=int,
+        default=30,
+        help="Step size between windows in days (default: 30)",
+    )
+    p_wfa.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help=(
+            "Optional output CSV for the walk‑forward results. If omitted, results will not be saved to a file."
+        ),
+    )
+    p_wfa.set_defaults(func=cmd_range_core_wfa)
+
+    # range-core-cv
+    p_cv = subparsers.add_parser(
+        "range-core-cv",
+        help="Perform time series cross‑validation on an entry/intrade dataset"
+    )
+    p_cv.add_argument(
+        "--dataset",
+        type=str,
+        required=True,
+        help=(
+            "Path to the dataset CSV (entry or intrade) used for cross‑validation."
+        ),
+    )
+    p_cv.add_argument(
+        "--n-splits",
+        type=int,
+        default=5,
+        help=(
+            "Number of time series splits for cross‑validation (default: 5)."
+        ),
+    )
+    p_cv.add_argument(
+        "--catboost-params",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma‑separated list of CatBoost parameters, e.g. 'iterations=200,depth=6'. "
+            "If omitted, defaults will be used."
+        ),
+    )
+    p_cv.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help=(
+            "Optional output file for fold metrics. If the extension is .json, the output will be JSON; "
+            "otherwise a CSV will be written."
+        ),
+    )
+    p_cv.set_defaults(func=cmd_range_core_cv)
+
     # range-core-summary
     p_csum = subparsers.add_parser(
         "range-core-summary",
@@ -1263,19 +1394,6 @@ def main():
         help="Path to summary CSV (default: out/range_v3_core_summary.csv)",
     )
     p_csum.set_defaults(func=cmd_range_core_summary)
-
-    # range-inference
-    p_inf = subparsers.add_parser(
-        "range-inference",
-        help="Run offline entry inference using exported artifact and snapshots CSV",
-    )
-    p_inf.add_argument("--artifact-path", type=str, required=True, help="Path to exported inference artifact JSON")
-    p_inf.add_argument("--snapshots-path", type=str, required=True, help="Path to snapshots CSV to score")
-    p_inf.add_argument("--out-prefix", type=str, required=True, help="Output prefix for inference CSV")
-    p_inf.add_argument("--tag", type=str, required=True, help="Tag for inference output file")
-    p_inf.add_argument("--config-path", dest="expected_config_path", type=str, default=None, help="Optional config path for fingerprint validation")
-    p_inf.add_argument("--quiet", dest="verbose", action="store_false", help="Disable verbose logging")
-    p_inf.set_defaults(func=cmd_range_inference, verbose=True)
 
 
 
