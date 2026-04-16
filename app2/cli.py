@@ -401,6 +401,12 @@ def cmd_range_core_summary(args):
     return summary_mod.main(args)
 
 
+def cmd_range_inference(args):
+    """Run offline entry inference from exported artifact + snapshots CSV."""
+    from .range.core import inference as inference_mod
+    return inference_mod.main(args)
+
+
 def cmd_range_v3_make_datasets(args):
     """Generate entry/in-trade datasets from range-v3 artifacts."""
     from .range import make_datasets
@@ -1257,6 +1263,19 @@ def main():
         help="Path to summary CSV (default: out/range_v3_core_summary.csv)",
     )
     p_csum.set_defaults(func=cmd_range_core_summary)
+
+    # range-inference
+    p_inf = subparsers.add_parser(
+        "range-inference",
+        help="Run offline entry inference using exported artifact and snapshots CSV",
+    )
+    p_inf.add_argument("--artifact-path", type=str, required=True, help="Path to exported inference artifact JSON")
+    p_inf.add_argument("--snapshots-path", type=str, required=True, help="Path to snapshots CSV to score")
+    p_inf.add_argument("--out-prefix", type=str, required=True, help="Output prefix for inference CSV")
+    p_inf.add_argument("--tag", type=str, required=True, help="Tag for inference output file")
+    p_inf.add_argument("--config-path", dest="expected_config_path", type=str, default=None, help="Optional config path for fingerprint validation")
+    p_inf.add_argument("--quiet", dest="verbose", action="store_false", help="Disable verbose logging")
+    p_inf.set_defaults(func=cmd_range_inference, verbose=True)
 
 
 

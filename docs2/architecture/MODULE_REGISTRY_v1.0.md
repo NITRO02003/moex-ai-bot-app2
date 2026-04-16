@@ -189,10 +189,19 @@
 
 ### agent_hands.py
 - layer: external tooling bridge
-- status: active, read-only
-- responsibility: связь с локальной моделью для анализа
-- depends_on: lm studio bridge
+- status: deprecated / optional
+- responsibility: исторический пример read-only bridge к локальной модели, если файл присутствует в рабочем пакете
+- depends_on: конкретный локальный LLM-backend
 - must_not_do: не писать в проект, не обходить patch workflow
+- notes: не считается обязательным компонентом текущей архитектуры; допускается замена другим локальным агентом при сохранении тех же ограничений
+
+### local_llm_bridge (concept)
+- layer: external tooling bridge
+- status: planned
+- responsibility: абстрактный интерфейс для локального LLM-агента или bridge-слоя
+- depends_on: выбранный локальный backend
+- must_not_do: не становиться source of truth, не обходить docs/patch discipline
+- notes: нужен как общий контейнер для рисков и ограничений локальных агентов, без привязки к одному файлу
 
 ## 6. Planned modules
 
