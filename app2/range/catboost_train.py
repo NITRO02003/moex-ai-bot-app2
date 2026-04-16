@@ -269,12 +269,42 @@ def _run_entry(
         df = df[df["pnl_rel"].notna()].copy()
         df["y_profit"] = (df["pnl_rel"] > 0).astype(int)
         label_col = "y_profit"
+    # Perform time‑based split for training/test.  If splitting by symbol,
+    # ensure that each symbol's training segment ends strictly before the test segment begins.
     if split_mode == "per_symbol":
         time_col = "entry_dt" if "entry_dt" in df.columns else "signal_dt"
         train_df, test_df = baseline_ml._split_by_symbol_time(df, "symbol", time_col, test_size)
+        # Verify temporal split per symbol (no lookahead)
+        if not train_df.empty and not test_df.empty:
+            # ensure that for each symbol the max train time is < min test time
+            work_train = train_df[["symbol", time_col]].copy()
+            work_train[time_col] = pd.to_datetime(work_train[time_col], errors="coerce")
+            work_test = test_df[["symbol", time_col]].copy()
+            work_test[time_col] = pd.to_datetime(work_test[time_col], errors="coerce")
+            for sym in work_train["symbol"].unique():
+                train_times = work_train.loc[work_train["symbol"] == sym, time_col].dropna()
+                test_times = work_test.loc[work_test["symbol"] == sym, time_col].dropna()
+                if not train_times.empty and not test_times.empty:
+                    max_train = train_times.max()
+                    min_test = test_times.min()
+                    if max_train >= min_test:
+                        raise ValueError(
+                            f"Temporal split violation for symbol {sym}: max train {max_train} >= min test {min_test}"  # noqa: E501
+                        )
     else:
         time_col = "entry_dt" if "entry_dt" in df.columns else "signal_dt"
         train_df, test_df = baseline_ml._split_by_time(df, time_col, test_size)
+        # Verify temporal split globally
+        if not train_df.empty and not test_df.empty:
+            train_dt = pd.to_datetime(train_df[time_col], errors="coerce")
+            test_dt = pd.to_datetime(test_df[time_col], errors="coerce")
+            if train_dt.notna().any() and test_dt.notna().any():
+                max_train = train_dt.max()
+                min_test = test_dt.min()
+                if max_train >= min_test:
+                    raise ValueError(
+                        f"Temporal split violation: max train {max_train} >= min test {min_test}"  # noqa: E501
+                    )
 
     drop_cols = [
         "pnl_rel",
@@ -313,7 +343,49 @@ def _run_entry(
     prob_train = model.predict_proba(x_train)[:, 1]
     prob_test = model.predict_proba(x_test)[:, 1]
     prob_all = model.predict_proba(x_all)[:, 1]
-    best_thr = baseline_ml._best_threshold(y_train, prob_train)
+    # Select threshold on a validation subset of the training data to avoid
+    # optimistic bias.  We take the last 20% of the training data in
+    # time‑sorted order (for per‑symbol mode we split each symbol).  If
+    # the training set is too small, fallback to using the entire training.
+    def _select_threshold_from_validation(train_df: pd.DataFrame, prob: np.ndarray) -> float:
+        if len(train_df) < 10:
+            return baseline_ml._best_threshold(y_train, prob)
+        # Determine time column
+        time_col_inner = "entry_dt" if "entry_dt" in train_df.columns else "signal_dt"
+        if split_mode == "per_symbol":
+            val_probs: List[float] = []
+            val_labels: List[int] = []
+            for sym, group_idx in train_df.groupby("symbol").indices.items():
+                group_df = train_df.iloc[group_idx]
+                group_prob = prob[group_idx]
+                # sort by time
+                group_df = group_df.reset_index(drop=True)
+                group_time = pd.to_datetime(group_df[time_col_inner], errors="coerce")
+                order = group_time.argsort()
+                group_df_sorted = group_df.iloc[order]
+                group_prob_sorted = group_prob[order]
+                n = len(group_df_sorted)
+                split_idx = int(n * 0.8)
+                # validation portion = last 20%
+                val_probs.extend(group_prob_sorted[split_idx:].tolist())
+                val_labels.extend(group_df_sorted[label_col].iloc[split_idx:].to_numpy(dtype=int).tolist())
+            if len(val_labels) < 1:
+                return baseline_ml._best_threshold(y_train, prob)
+            return baseline_ml._best_threshold(np.array(val_labels, dtype=int), np.array(val_probs, dtype=float))
+        else:
+            # global splitting
+            train_copy = train_df.copy()
+            train_copy[time_col_inner] = pd.to_datetime(train_copy[time_col_inner], errors="coerce")
+            train_copy = train_copy.sort_values(time_col_inner)
+            n = len(train_copy)
+            split_idx = int(n * 0.8)
+            val_labels = train_copy[label_col].iloc[split_idx:].to_numpy(dtype=int)
+            val_probs = prob[split_idx:]
+            if len(val_labels) < 1:
+                return baseline_ml._best_threshold(y_train, prob)
+            return baseline_ml._best_threshold(val_labels, val_probs)
+
+    best_thr = _select_threshold_from_validation(train_df, prob_train)
 
     per_symbol_trade_full: Dict[str, Dict[str, float | int | None]] = {}
     per_symbol_trade_test: Dict[str, Dict[str, float | int | None]] = {}
@@ -372,6 +444,7 @@ def _run_entry(
             "include": include_override,
             "exclude": exclude,
         },
+        "threshold_selection": "val_split" if len(train_df) >= 10 else "train",
     }
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -393,9 +466,38 @@ def _run_intrade(
     df = df[df["y_exit"].notna()].copy()
     df["y_exit"] = pd.to_numeric(df["y_exit"], errors="coerce").fillna(0).astype(int)
     if split_mode == "per_symbol":
+        # per-symbol split by trade ensures temporal ordering per symbol
         train_df, test_df = baseline_ml._split_by_symbol_trade(df, "symbol", "trade_uid", "entry_dt", test_size)
+        # Temporal split guard: for each symbol ensure no overlap between train and test
+        if not train_df.empty and not test_df.empty:
+            # Build per-symbol entry_dt times for trades
+            work_train = train_df[["symbol", "entry_dt"]].copy()
+            work_train["entry_dt"] = pd.to_datetime(work_train["entry_dt"], errors="coerce")
+            work_test = test_df[["symbol", "entry_dt"]].copy()
+            work_test["entry_dt"] = pd.to_datetime(work_test["entry_dt"], errors="coerce")
+            for sym in work_train["symbol"].unique():
+                train_times = work_train.loc[work_train["symbol"] == sym, "entry_dt"].dropna()
+                test_times = work_test.loc[work_test["symbol"] == sym, "entry_dt"].dropna()
+                if not train_times.empty and not test_times.empty:
+                    max_train = train_times.max()
+                    min_test = test_times.min()
+                    if max_train >= min_test:
+                        raise ValueError(
+                            f"Temporal split violation for symbol {sym}: max train {max_train} >= min test {min_test}"  # noqa: E501
+                        )
     else:
+        # global split by trade id
         train_df, test_df = baseline_ml._split_by_trade(df, "trade_uid", "entry_dt", test_size)
+        if not train_df.empty and not test_df.empty:
+            train_dt = pd.to_datetime(train_df["entry_dt"], errors="coerce")
+            test_dt = pd.to_datetime(test_df["entry_dt"], errors="coerce")
+            if train_dt.notna().any() and test_dt.notna().any():
+                max_train = train_dt.max()
+                min_test = test_dt.min()
+                if max_train >= min_test:
+                    raise ValueError(
+                        f"Temporal split violation: max train {max_train} >= min test {min_test}"  # noqa: E501
+                    )
 
     drop_cols = [
         "y_exit",
@@ -428,7 +530,42 @@ def _run_intrade(
     prob_train = model.predict_proba(x_train)[:, 1]
     prob_test = model.predict_proba(x_test)[:, 1]
     prob_all = model.predict_proba(x_all)[:, 1]
-    best_thr = baseline_ml._best_threshold(y_train, prob_train)
+    # Select threshold via validation subset of training data (20% of training trades)
+    def _select_threshold_from_validation_intrade(train_df: pd.DataFrame, prob: np.ndarray) -> float:
+        if len(train_df) < 10:
+            return baseline_ml._best_threshold(y_train, prob)
+        if split_mode == "per_symbol":
+            val_probs: List[float] = []
+            val_labels: List[int] = []
+            # group by symbol, ensure ordering by entry_dt
+            for sym, idx in train_df.groupby("symbol").indices.items():
+                group_df = train_df.iloc[idx]
+                group_prob = prob[idx]
+                group_time = pd.to_datetime(group_df["entry_dt"], errors="coerce")
+                order = group_time.argsort()
+                group_df_sorted = group_df.iloc[order]
+                group_prob_sorted = group_prob[order]
+                n = len(group_df_sorted)
+                split_idx = int(n * 0.8)
+                val_probs.extend(group_prob_sorted[split_idx:].tolist())
+                val_labels.extend(group_df_sorted["y_exit"].iloc[split_idx:].to_numpy(dtype=int).tolist())
+            if len(val_labels) < 1:
+                return baseline_ml._best_threshold(y_train, prob)
+            return baseline_ml._best_threshold(np.array(val_labels, dtype=int), np.array(val_probs, dtype=float))
+        else:
+            # global split by time
+            train_copy = train_df.copy()
+            train_copy["entry_dt"] = pd.to_datetime(train_copy["entry_dt"], errors="coerce")
+            train_copy = train_copy.sort_values("entry_dt")
+            n = len(train_copy)
+            split_idx = int(n * 0.8)
+            val_labels = train_copy["y_exit"].iloc[split_idx:].to_numpy(dtype=int)
+            val_probs = prob[split_idx:]
+            if len(val_labels) < 1:
+                return baseline_ml._best_threshold(y_train, prob)
+            return baseline_ml._best_threshold(val_labels, val_probs)
+
+    best_thr = _select_threshold_from_validation_intrade(train_df, prob_train)
 
     trade_full = _trade_level_rows(df)
     trade_test = _trade_level_rows(test_df)
@@ -459,6 +596,7 @@ def _run_intrade(
             "include": include_override,
             "exclude": exclude,
         },
+        "threshold_selection": "val_split" if len(train_df) >= 10 else "train",
     }
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
