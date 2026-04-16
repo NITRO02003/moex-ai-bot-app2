@@ -1,38 +1,62 @@
 # CHANGELOG_v1.0 - журнал изменений docs2
 
-## 1. Базовое создание docs2
+## v1.0
 
-В `docs2` были введены:
-- README
-- DOC_INDEX
-- CONTRACT
-- model_plan
-- policies
-- operations
-- architecture
-- templates
+Создана новая система документации `docs2/`.
 
-## 2. Что было зафиксировано по содержанию
+### Введены новые документы
+- `READMEv1.0.md`
+- `DOC_INDEX_v1.0.md`
+- `CONTRACTv1.0.md`
+- `model_plan_v1.0.md`
+- `architecture/ARCHITECTURE_BLUEPRINT_v1.0.md`
+- `architecture/MODULE_REGISTRY_v1.0.md`
+- `policies/RESEARCH_POLICY_v1.0.md`
+- `policies/LLM_WORKFLOW_v1.0.md`
+- `operations/MIGRATION_CONTEXT_v1.0.md`
+- `operations/CHANGELOG_v1.0.md`
+- `templates/PHASE_REPORT_TEMPLATE_v1.0.md`
 
-- `core` - главный контур развития;
-- `legacy` - только reference;
-- sandbox - промежуточный этап к online;
-- финальная цель - исследовательски честная offline/online система;
-- Dataset A truth policy:
-  - `Dataset A_research = candidates`
-  - `Dataset A_policy = trades`.
+### В history перенесены verbatim-копии старых документов
+README:
+- v4.7
+- v4.8
+- v4.9
+- v4.10
 
-## 3. Что было исправлено в документационной дисциплине
+CONTRACT:
+- v4.8
+- v4.9
+- v4.10
 
-- документы не должны терять уже согласованное содержание;
-- мелкие правки не требуют новой версии имени файла;
-- в рабочем `docs2` держится один файл на семейство;
-- `history/` используется только для legacy-копий из исходного `docs`.
+model_plan:
+- v0.3
+- v0.4
 
-## 4. Режим работы ассистента
+### Главные новые принципы
+- docs2 становится новой системой source of truth
+- core официально признаётся главным объектом развития
+- Dataset A делится на `A_research` и `A_policy`
+- migration context выносится в отдельный обязательный документ
+- architecture blueprint и module registry становятся обязательными частями процесса
 
-По умолчанию ассистент работает в режиме критика:
-- без лести и автосогласия;
-- с прямым исправлением ошибок;
-- с оценкой рисков, слабых мест и альтернатив;
-- с прямым указанием, чего не хватает.
+## Updates (2026-04-16)
+
+### Улучшения baseline и исследовательского контура
+
+- Введены утилиты для фиксации и анализа baseline (`baseline_core.py`), сравнения baseline с AI‑фильтром (`evaluate_gating.py`), а также для генерации сводной таблицы метрик (`summary_core.py`).
+- Добавлен файл `baseline_symbols.txt` для динамического задания списка тикеров; его можно редактировать без изменения кода.
+- Обновлена политика исследовательской честности: в meta‑файле (манифесте) теперь обязательно указываются `dataset_kind`, `truth_policy`, `config_path`, `label_mode` и `horizon`.
+- Обновлён миграционный контекст: baseline должен демонстрировать положительное ожидание, иначе оценка AI‑фильтра не имеет смысла; результаты baseline и фильтра сохраняются в `out/` и включаются в обязательный пакет артефактов.
+- В CLI добавлены команды `range-core-baseline`, `range-gating-eval` и `range-core-summary`; команда `range-v3-backtest` теперь по умолчанию использует движок `core`.
+
+## Правило ведения changelog
+
+Фиксируем:
+- создание / удаление документов;
+- перенос документов между структурами;
+- существенное изменение ролей документов.
+
+Не фиксируем подробно:
+- мелкие формулировочные правки;
+- косметические изменения markdown.
