@@ -5,6 +5,20 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+# Import common rolling and entry utils from core.  Using the same helpers as
+# `core/state_machine.py` eliminates duplicate implementations and ensures
+# consistent behaviour between the classic Range V3 baseline and the core engine.
+from .core.blocks import (
+    calc_roll_levels,
+    calc_height_mask,
+    calc_slope_mask,
+    calc_atr_pct,
+    calc_vol_mask,
+    calc_entry_zone,
+    calc_breakout_mask,
+    calc_entry_signal,
+)
+
 
 # === Parameters ===
 
@@ -684,59 +698,47 @@ def run_range_v3_for_symbol(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd
         }
         return out, debug_info
 
+    # Grab typed series for readability
     high = df["high"]
     low = df["low"]
     close = df["close"]
 
     window = params.range_window_bars
 
-    # Rolling-квантили по прошлым барам
-    # Разреженные данные: используем смягчённый min_periods, чтобы не получить сплошной NaN.
+    # Rolling L/U/H/M levels using common helper.  Use same min_valid logic as
+    # core/state_machine: at least 40% of the window and at least 10 bars.
     min_valid = max(int(window * 0.4), 10)
-    roll_L = low.rolling(window=window, min_periods=min_valid).quantile(0.15).shift(1)
-    roll_U = high.rolling(window=window, min_periods=min_valid).quantile(0.85).shift(1)
-    roll_H = roll_U - roll_L
-    roll_M = (roll_L + roll_U) / 2.0
+    roll_L, roll_U, roll_H, roll_M = calc_roll_levels(low, high, window, min_valid)
 
-    # Высота диапазона в процентах к цене (каузально: делим на предыдущий close)
-    height_pct = roll_H / close.shift(1)
-    mask_height = (
-        (height_pct >= params.min_range_height_pct)
-        & (height_pct <= params.max_range_height_pct)
+    # Height filter using common helper.  This returns the height_pct and mask.
+    height_pct, mask_height = calc_height_mask(
+        roll_H,
+        close,
+        params.min_range_height_pct,
+        params.max_range_height_pct,
     )
 
-    # Slope-фильтр: измеряем наклон MA в относительных единицах (каузально)
-    ma = _calc_ma(df, window)
-    slope_raw = (ma - ma.shift(window)) / float(max(window, 1))
-    slope_abs = slope_raw.abs().shift(1)
-    slope_pct = slope_abs / close.shift(1)
-    slope_k = params.slope_k
-    mask_slope = slope_pct < slope_k
+    # Slope filter.  We compute slope_pct and mask_slope but do not use
+    # mask_slope in the baseline entry logic (matching original behaviour).
+    slope_pct, mask_slope = calc_slope_mask(
+        close,
+        window,
+        params.slope_k,
+    )
 
-    # Робастный ATR для фильтра по волатильности
+    # ATR-based volatility filter using common helpers
     atr_window = params.atr_window
     min_valid_atr = max(
         int(atr_window * params.atr_min_valid_frac),
         params.atr_min_valid_bars,
     )
+    # We need to reassign high/low again because they may have been shadowed above
     high = df["high"]
     low = df["low"]
-    prev_close = close.shift(1)
-    tr1 = high - low
-    tr2 = (high - prev_close).abs()
-    tr3 = (low - prev_close).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=atr_window, min_periods=min_valid_atr).mean()
-    atr_pct = (atr / close).shift(1)
+    atr_pct = calc_atr_pct(high, low, close, atr_window, min_valid_atr)
+    mask_vol = calc_vol_mask(atr_pct, params.atr_pct_min, params.atr_pct_max)
 
-    mask_vol = (
-        atr_pct.notna()
-        & (atr_pct >= params.atr_pct_min)
-        & (atr_pct <= params.atr_pct_max)
-    )
-
-    # Валидный бокс: L/U, высота и волатильность в допустимых пределах
-    # slope пока используем только в диагностике
+    # Valid box: L/U exist, height and vol in bounds (slope not used here)
     mask_range = roll_L.notna() & roll_U.notna() & mask_height & mask_vol
 
     out = df.copy()
@@ -753,24 +755,17 @@ def run_range_v3_for_symbol(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd
     out.loc[mask_range, "v3_segment_quality"] = "ROLLING"
 
     # --- Логика входа (long-only baseline) ---
-    # Зона входа вокруг L: [L - shadow, L + alpha]
-    shadow = roll_H * params.shadow_pct
-    alpha = roll_H * params.entry_zone_alpha
-
-    long_zone_low = roll_L - shadow
-    long_zone_high = roll_L + alpha
-
+    # Входная зона и шаг shadow/alpha формируем через общий helper
+    long_zone_low, long_zone_high, shadow, alpha = calc_entry_zone(
+        roll_L, roll_H, params.shadow_pct, params.entry_zone_alpha
+    )
     # Бар касается зоны, если его диапазон [low, high] пересекается с зоной
     is_in_zone = (low <= long_zone_high) & (high >= long_zone_low)
-
-    # Простой breakout вниз: закрытие значительно ниже L
-    breakout_level = roll_L - (shadow * 2.0)
-    is_breakout = close < breakout_level
+    # Простой breakout вниз: закрытие значительно ниже L (используем helper)
+    breakout_level, is_breakout = calc_breakout_mask(close, roll_L, shadow)
     out.loc[is_breakout, "v3_breakout"] = True
-
-    # Кандидаты на вход: есть бокс, бар коснулся зоны, не breakout
-    signal_long = mask_range & is_in_zone & (~is_breakout)
-
+    # Кандидаты на вход: есть бокс, бар коснулся зоны, не breakout (helper)
+    signal_long = calc_entry_signal(mask_range, is_in_zone, is_breakout)
     out.loc[signal_long, "v3_signal"] = 1.0
 
     # Диагностика
