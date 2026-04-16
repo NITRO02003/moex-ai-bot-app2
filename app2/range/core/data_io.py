@@ -30,9 +30,19 @@ def _load_range_config(path: str) -> Dict[str, Any]:
     params = dict(range_cfg.get("params", {}))
     profile_name = str(range_cfg.get("risk_profile", "") or "")
     profiles = range_cfg.get("risk_profiles", {})
+    # If a risk profile is defined, apply its overrides.  In addition,
+    # remove any keys from the base params that also appear in the
+    # profile.  This enforces a single source of truth for risk
+    # parameters: they must live only inside the risk_profiles
+    # dictionary, not be duplicated in the base params.
     if profile_name and isinstance(profiles, dict):
         overrides = profiles.get(profile_name)
         if isinstance(overrides, dict):
+            # Remove duplicate keys from base params to avoid drift
+            for key in overrides.keys():
+                if key in params:
+                    del params[key]
+            # Apply risk profile overrides
             params.update(overrides)
     return params
 

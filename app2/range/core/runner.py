@@ -167,6 +167,40 @@ def run_range_backtest(args) -> None:
         from ..baseline_ml import COMPACT_FEATURES as _DEFAULT_FEATURES
         entry_feature_cols = _DEFAULT_FEATURES
 
+    # If the entry model path points to an artifact (JSON), validate and load it.
+    # This ensures train/inference parity by enforcing feature schema, truth policy,
+    # dataset kind and config fingerprint matching.
+    if entry_model_path and entry_model_path.lower().endswith(".json"):
+        try:
+            # Defer heavy imports until needed
+            from .artifact_validator import validate_inference_artifact
+            from .inference_artifacts import InferenceArtifact
+            import json
+
+            # Validate the artifact against expected dataset kind and config.
+            # We treat the current feature set as the expected set.
+            validate_inference_artifact(
+                artifact_path=entry_model_path,
+                expected_dataset_kind="entry",
+                expected_features=entry_feature_cols,
+                expected_config_path=cfg_path,
+            )
+            # Load the artifact JSON and construct an instance
+            with open(entry_model_path, "r", encoding="utf-8") as f:
+                art_dict = json.load(f)
+            art = InferenceArtifact(**art_dict)
+            # Override model-related parameters with values from the artifact
+            entry_model_path = art.model_path
+            # Only override threshold if present; otherwise keep CLI-specified value
+            if art.threshold is not None:
+                entry_model_threshold = float(art.threshold)
+            # Replace feature columns with artifact features; this ensures order
+            if art.features:
+                entry_feature_cols = list(art.features)
+        except Exception as e:
+            # Propagate validation errors with context
+            raise RuntimeError(f"Invalid inference artifact: {e}")
+
     # Load range configuration and instantiate parameters
     params_cfg = _load_range_config(cfg_path)
     params = RangeV3Params(params_cfg)

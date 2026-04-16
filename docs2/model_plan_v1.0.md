@@ -19,7 +19,8 @@
 
 - сначала стабилизация `core` и его контрактов;
 - потом честный research-to-policy контур;
-- затем sandbox/online bridge;
+- затем блок устойчивости оценки и режимной адаптации (WFA, bootstrap, calibration, latency, Regime Engine v1);
+- sandbox/online bridge откладывается до закрытия этого блока;
 - сравнение с legacy не является обязательным этапом roadmap.
 
 ## 0. Назначение
@@ -82,20 +83,37 @@
 - усилить валидацию data layer;
 - расширить metadata reports (`config_fingerprint`, `dataset_version`, `truth_policy`, `dataset_kind`).
 
-### P2 - обновление контрактов и правил
-После P1 фиксируются изменения в docs2:
+### P2 - устойчивость оценки и режимная адаптация
+После P1 закрывается отдельный блок, без которого нельзя возвращаться к sandbox:
+- Walk-Forward Analysis (WFA) как основной способ проверки устойчивости;
+- time-series split / cross-validation по времени для моделей;
+- bootstrap / Monte Carlo по сделкам для доверительных интервалов PF / MaxDD и других метрик;
+- calibration вероятностей;
+- sensitivity к задержке исполнения;
+- `Regime Engine v1` как ранний следующий слой, а не дальняя фаза.
+
+### P3 - обновление контрактов, правил и отложенные улучшения
+После P2 фиксируются изменения в docs2 и идут некритичные доработки:
 - правило версионирования docs: новая версия имени файла нужна только при смене source of truth или структуры документа;
 - уточнение risk-config в контракте без отдельного нового файла;
 - общий раздел про риски локальных LLM-агентов без привязки к одному bridge-файлу;
-- расчистка избыточных legacy appendices в актуальном плане переносится в отдельную несрочную доработку.
-
-### P3 - отложенные улучшения
-Включаются в план, но не являются первым приоритетом:
+- расчистка избыточных legacy appendices в актуальном плане переносится в отдельную несрочную доработку;
 - отвязка `core` от `RangeV3Params`;
 - два режима `parallel_map` (`fail-fast` и `continue-on-error`);
-- оптимизация построения intrade-датасета только после профилирования.
+- оптимизация построения intrade-датасета только после профилирования;
+- ATR trailing / partial exit experiments;
+- microstructure + intermarket features;
+- Docker / воспроизводимость окружения.
 
-### P4 - тесты
+### P4 - следующий этап после стабилизации основного контура
+На следующий этап разработки, но не в текущий приоритетный блок, переносятся:
+- ensembles / stacking;
+- sentiment;
+- dashboard / rich visualization;
+- online monitoring / alerting;
+- sandbox / dry-run / online bridge.
+
+### P5 - тесты
 Полноценные unit-тесты делаются после закрытия критических проблем и основного техдолга.
 До этого обязательны `compileall`, smoke-check и короткие sanity-run.
 
@@ -127,7 +145,16 @@
 - AI gating и анализ uplift;
 - regime-aware и geometry-aware improvements.
 
-### Фаза D - sandbox path
+### Фаза D - robustness and regime-aware path
+Задачи:
+- walk-forward / time-series validation;
+- bootstrap / Monte Carlo по сделкам;
+- calibration вероятностей;
+- latency sensitivity;
+- Regime Engine v1;
+- regime-aware feature selection и threshold adaptation.
+
+### Фаза E - sandbox path
 Задачи:
 - минимальный execution path;
 - sandbox adapter;
@@ -135,7 +162,7 @@
 - fail-safe;
 - paper/sandbox orchestration.
 
-### Фаза E - online-capable research platform
+### Фаза F - online-capable research platform
 Задачи:
 - online inference;
 - online execution;
@@ -148,11 +175,12 @@
 
 ## 4. Что считаем текущим фокусом
 
-Текущий фокус не в "ещё одной фиче", а в трёх направлениях:
+Текущий фокус не в "ещё одной фиче", а в четырёх направлениях:
 
 1. Архитектурная устойчивость core
 2. Исследовательская честность Dataset / ML
-3. Подготовка к следующему roadmap без потери смысла прежних документов
+3. Устойчивость оценки (WFA / bootstrap / calibration / latency)
+4. Regime-aware контур до перехода к sandbox
 
 ## 5. Что прямо не делаем до фиксации docs2
 
@@ -169,7 +197,8 @@
 - Regime Detection как фундамент;
 - AI-фильтрация входа;
 - Adaptive Exit;
-- MTL-подход на поздних фазах.
+- `Regime Engine v1` поднимается в ранний следующий этап после стабилизации P0/P1, а не откладывается в дальнюю фазу;
+- MTL-подход остаётся поздней фазой.
 
 ### 6.2. Intermarket / Sentiment / MTF
 Эти идеи не отбрасываются.

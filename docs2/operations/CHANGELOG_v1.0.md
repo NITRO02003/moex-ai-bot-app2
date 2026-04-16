@@ -70,3 +70,13 @@ model_plan:
 - В `CONTRACTv1.0.md` уточнён source-of-truth для risk-config: профильные risk-параметры считаются canonical в `risk_profiles`, а дублирование с `params` считается ошибкой.
 - В `PROJECT_RULES_v1.0.md` и связанных документах закреплено правило: новая версия имени файла нужна только при смене source of truth или структуры документа; минорные дополнения допускаются без смены имени, но должны попадать в changelog.
 - Уточнены риски локальных LLM-агентов и bridge-слоёв без привязки к `agent_hands` как обязательному компоненту.
+
+## Updates (2026-04-17, part 2)
+
+### Реприоритизация roadmap после внешних рекомендаций
+
+- В `model_plan_v1.0.md` зафиксировано, что sandbox больше не является ближайшим следующим этапом после P0/P1.
+- Добавлен отдельный блок устойчивости оценки: WFA, time-series split, bootstrap / Monte Carlo по сделкам, calibration вероятностей и latency sensitivity.
+- `Regime Engine v1` поднят в ранний следующий этап после стабилизации core и честного ML-контура.
+- Ensembles / stacking, sentiment, dashboard и monitoring перенесены на следующий этап и не входят в ближайший приоритетный блок.
+- `MIGRATION_CONTEXT_v1.0.md` обновлён под новый порядок работ: сначала trust fixes, затем robustness/regime block, и только потом sandbox / online bridge.
