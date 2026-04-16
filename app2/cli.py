@@ -5,6 +5,8 @@ import os
 import json
 
 import pandas as pd
+from typing import List
+from typing import List
 
 from .parallel import parallel_map
 from .utils import load_symbols
@@ -350,6 +352,65 @@ def cmd_range_core_cv(args):
     )
     print(
         f"[range-core-cv] Completed time series CV on {args.dataset} with {args.n_splits} splits; "
+        f"results saved to {args.out if args.out else 'not written'}."
+    )
+    return 0
+
+
+def cmd_range_core_bootstrap(args):
+    """Run bootstrap resampling analysis on an aggregated trades CSV.
+
+    This command reads a trades CSV (produced by a baseline or model run),
+    resamples the per‑trade PnL values with replacement and computes
+    percentile bands for standard portfolio metrics.  It is intended to
+    assess the variability of performance due to trade sequencing.
+    """
+    from .range.core.bootstrap import run_bootstrap_analysis
+
+    # Convert sample_size of 0 or negative to None
+    sample_size = args.sample_size if args.sample_size and args.sample_size > 0 else None
+    run_bootstrap_analysis(
+        trades_path=args.trades_path,
+        equity0=args.equity0,
+        n_samples=args.samples,
+        sample_size=sample_size,
+        out_path=args.out,
+    )
+    print(
+        f"[range-core-bootstrap] Completed bootstrap analysis on {args.trades_path}; "
+        f"results saved to {args.out if args.out else 'not written'}."
+    )
+    return 0
+
+
+def cmd_range_core_latency(args):
+    """Run latency sensitivity analysis on an aggregated trades CSV.
+
+    This command reads a trades CSV and computes portfolio metrics while
+    discarding the first N trades to simulate execution delays.  Delays
+    are specified as a comma‑separated list.  If no baseline (0) is
+    provided, it will be inserted automatically.
+    """
+    from .range.core.latency import run_latency_sensitivity
+    # Parse delays
+    delays: List[int] = []
+    for part in args.delays.split(","):
+        part = part.strip()
+        if part:
+            try:
+                delays.append(int(part))
+            except ValueError:
+                raise ValueError(f"Invalid delay value '{part}', must be an integer")
+    if 0 not in delays:
+        delays.insert(0, 0)
+    run_latency_sensitivity(
+        trades_path=args.trades_path,
+        equity0=args.equity0,
+        delays=delays,
+        out_path=args.out,
+    )
+    print(
+        f"[range-core-latency] Completed latency sensitivity analysis on {args.trades_path}; "
         f"results saved to {args.out if args.out else 'not written'}."
     )
     return 0
@@ -1394,6 +1455,91 @@ def main():
         help="Path to summary CSV (default: out/range_v3_core_summary.csv)",
     )
     p_csum.set_defaults(func=cmd_range_core_summary)
+
+    # range-core-bootstrap
+    p_boot = subparsers.add_parser(
+        "range-core-bootstrap",
+        help="Run bootstrap resampling analysis on aggregated trades",
+    )
+    p_boot.add_argument(
+        "--trades-path",
+        type=str,
+        required=True,
+        help=(
+            "Path to the aggregated trades CSV (e.g. '*_ALL_*_trades.csv') to run the bootstrap analysis on."
+        ),
+    )
+    p_boot.add_argument(
+        "--equity0",
+        type=float,
+        default=1_000_000.0,
+        help=(
+            "Initial equity used to compute total returns. Defaults to 1,000,000."
+        ),
+    )
+    p_boot.add_argument(
+        "--samples",
+        type=int,
+        default=1000,
+        help="Number of bootstrap resamples (default: 1000)",
+    )
+    p_boot.add_argument(
+        "--sample-size",
+        type=int,
+        default=None,
+        help=(
+            "Size of each resample. If omitted or <= 0, uses the number of trades in the dataset."
+        ),
+    )
+    p_boot.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help=(
+            "Optional output JSON file for percentile summary. If omitted, the summary is not saved."
+        ),
+    )
+    p_boot.set_defaults(func=cmd_range_core_bootstrap)
+
+    # range-core-latency
+    p_lat = subparsers.add_parser(
+        "range-core-latency",
+        help="Run latency sensitivity analysis on aggregated trades",
+    )
+    p_lat.add_argument(
+        "--trades-path",
+        type=str,
+        required=True,
+        help=(
+            "Path to the aggregated trades CSV (e.g. '*_ALL_*_trades.csv') to run the latency analysis on."
+        ),
+    )
+    p_lat.add_argument(
+        "--equity0",
+        type=float,
+        default=1_000_000.0,
+        help=(
+            "Initial equity used to compute total returns. Defaults to 1,000,000."
+        ),
+    )
+    p_lat.add_argument(
+        "--delays",
+        type=str,
+        default="1,2",
+        help=(
+            "Comma-separated list of delay values (number of trades to drop) for sensitivity analysis. "
+            "Include 0 to compute the baseline as well."
+        ),
+    )
+    p_lat.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help=(
+            "Optional output JSON file for latency sensitivity results. If omitted, the results are not saved."
+        ),
+    )
+    p_lat.set_defaults(func=cmd_range_core_latency)
 
 
 
