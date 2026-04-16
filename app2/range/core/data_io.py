@@ -166,6 +166,34 @@ def _load_ohlcv(symbol: str, interval: str) -> pd.DataFrame:
     df[dt_col] = pd.to_datetime(df[dt_col])
     df = df.sort_values(dt_col).reset_index(drop=True).set_index(dt_col)
 
+    # ------------------------------------------------------------------
+    # Data integrity checks.  Enforce a monotonic time index, ensure
+    # there are no duplicate timestamps, and verify a minimum number of
+    # bars.  These checks help detect corrupt or undersized datasets
+    # early.  If any check fails, raise a ValueError with context.
+    #
+    # Sorting above ensures the index is monotonic if the timestamps
+    # themselves are strictly increasing, but we double‑check and
+    # re‑sort to cover edge cases.  Duplicate timestamps are not
+    # allowed because they break roll computations.  Finally, tiny
+    # datasets (fewer than 10 bars) are rejected because statistics
+    # like ATR or slope become unstable.
+    # ------------------------------------------------------------------
+    # Ensure monotonicity
+    if not df.index.is_monotonic_increasing:
+        df = df.sort_index()
+    # Detect duplicate timestamps
+    if df.index.has_duplicates:
+        dup_count = int(df.index.duplicated().sum())
+        raise ValueError(
+            f"Data for {symbol} contains {dup_count} duplicate timestamps in {path}"
+        )
+    # Ensure minimum number of bars
+    if len(df) < 10:
+        raise ValueError(
+            f"Data for {symbol} has too few rows (<10) in {path}: {len(df)}"
+        )
+
     # normalize common OHLC column names to canonical lower-case names
     rename_map: Dict[str, str] = {}
     for c in df.columns:

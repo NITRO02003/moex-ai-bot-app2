@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import hashlib
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -421,6 +424,37 @@ def _run_entry(
         }
         trade_metrics_source = {"returns_col": "entry_ret", "equity0": 1.0}
 
+    # Compose metadata from accompanying manifest if available.  This
+    # includes dataset kind, truth_policy, config_path and a
+    # fingerprint of the range config.  These fields help trace the
+    # training data provenance and ensure train/inference parity.  If
+    # the meta or config file is missing, fields will be None.
+    dataset_meta: Dict[str, object] = {}
+    cfg_fingerprint: str | None = None
+    if meta_path and meta_path.exists():
+        try:
+            with open(meta_path, "r", encoding="utf-8") as meta_f:
+                meta_json = json.load(meta_f)
+            dataset_meta = {
+                "dataset_kind": meta_json.get("dataset_kind"),
+                "truth_policy": meta_json.get("truth_policy"),
+                "config_path": meta_json.get("config_path"),
+                "dataset_version": meta_json.get("dataset_version"),
+                "label_mode": meta_json.get("entry_label_mode"),
+                "horizon_bars": meta_json.get("entry_horizon_bars"),
+            }
+            cfg_path = dataset_meta.get("config_path")
+            if cfg_path and os.path.exists(str(cfg_path)):
+                try:
+                    with open(cfg_path, "rb") as cfg_f:
+                        cfg_bytes = cfg_f.read()
+                    cfg_fingerprint = hashlib.sha256(cfg_bytes).hexdigest()
+                except Exception:
+                    cfg_fingerprint = None
+        except Exception:
+            dataset_meta = {}
+            cfg_fingerprint = None
+
     report = {
         "rows": int(len(df)),
         "target": label_col,
@@ -445,6 +479,8 @@ def _run_entry(
             "exclude": exclude,
         },
         "threshold_selection": "val_split" if len(train_df) >= 10 else "train",
+        "dataset_meta": dataset_meta,
+        "config_fingerprint": cfg_fingerprint,
     }
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -573,6 +609,37 @@ def _run_intrade(
     per_symbol_trade_full = _per_symbol_trade_stats(trade_full, trade_pnl_col, trade_equity0)
     per_symbol_trade_test = _per_symbol_trade_stats(trade_test, trade_pnl_col, trade_equity0)
 
+    # Compose metadata from accompanying manifest if available.  For
+    # intrade datasets the manifest has dataset_kind="intrade".  We
+    # capture dataset_kind, truth_policy, config_path and version.  We
+    # also compute a fingerprint of the range config to ensure parity
+    # between train and inference.  If the meta or config file is
+    # missing, fields will be None.
+    dataset_meta: Dict[str, object] = {}
+    cfg_fingerprint: str | None = None
+    try:
+        p = Path(intrade_path)
+        meta_path = p.with_name(p.stem + "_meta.json")
+        if meta_path.exists():
+            with open(meta_path, "r", encoding="utf-8") as meta_f:
+                meta_json = json.load(meta_f)
+            dataset_meta = {
+                "dataset_kind": meta_json.get("dataset_kind"),
+                "truth_policy": meta_json.get("truth_policy"),
+                "config_path": meta_json.get("config_path"),
+                "dataset_version": meta_json.get("dataset_version"),
+                "label_mode": None,
+                "horizon_bars": None,
+            }
+            cfg_path = dataset_meta.get("config_path")
+            if cfg_path and os.path.exists(str(cfg_path)):
+                with open(cfg_path, "rb") as cfg_f:
+                    cfg_bytes = cfg_f.read()
+                cfg_fingerprint = hashlib.sha256(cfg_bytes).hexdigest()
+    except Exception:
+        dataset_meta = {}
+        cfg_fingerprint = None
+
     report = {
         "rows": int(len(df)),
         "target": "y_exit",
@@ -597,6 +664,8 @@ def _run_intrade(
             "exclude": exclude,
         },
         "threshold_selection": "val_split" if len(train_df) >= 10 else "train",
+        "dataset_meta": dataset_meta,
+        "config_fingerprint": cfg_fingerprint,
     }
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
