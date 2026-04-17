@@ -1,106 +1,79 @@
-"""
-Walk‑Forward Analysis (WFA) utilities for the range‑core backtester.
-
-This module provides a function to compute rolling performance
-statistics across a set of executed trades.  It is intended to help
-assess the temporal stability of a trading strategy by splitting a
-history of trades into a series of overlapping windows and
-computing standard portfolio metrics for each window.  The output
-can then be analysed to understand how returns, win rates and
-drawdown evolve through time.
-
-Typical usage from the command line::
-
-    python -m app2.range.core.wfa \
-        --trades-path out/range_v3_baseline_ALL_30min_baseline_trades.csv \
-        --equity0 1000000 \
-        --window-days 90 \
-        --step-days 30 \
-        --out out/range_v3_wfa.csv
-
-This will read the aggregated trades CSV, split the timeline into
-90‑day windows advanced by 30 days, compute portfolio statistics
-for each window and save the results to ``out/range_v3_wfa.csv``.
-
-The function ``run_walk_forward_analysis`` can also be imported and
-called programmatically.
-"""
-
 from __future__ import annotations
 
-import argparse
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+"""Walk‑forward analysis for trading results.
+
+This module exposes a simple API for performing walk‑forward analysis on a set
+of executed trades.  Given a CSV of trades produced by the core backtester
+(`*_trades.csv`), it slices the trades into rolling windows and computes
+portfolio‑level performance metrics for each window.  Metrics include total
+profit and loss, total return, win rate, profit factor and maximum drawdown.
+
+The primary entry point is :func:`run_walk_forward_analysis`.  There is
+also a small CLI wrapper via ``python -m app2.range.core.wfa`` which is used
+indirectly by the top‑level ``app2.cli`` through the ``range-core-wfa``
+subcommand.
+
+This tool is intended for research and robustness testing – it does not
+attempt to re‑simulate trades, but rather consumes the output of an existing
+backtest.  Windows are defined in days relative to the trade entry times.
+"""
+
+from datetime import timedelta
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import List, Dict, Optional
 
 import pandas as pd
 
 from .portfolio import build_portfolio_stats
 
 
-@dataclass
-class WFAWindowResult:
-    """Holds the results for a single walk‑forward window."""
+def _infer_datetime_column(df: pd.DataFrame) -> str:
+    """Heuristically determine the datetime column in a trades CSV.
 
-    window_start: datetime
-    window_end: datetime
-    num_trades: int
-    total_pnl: float
-    total_return: float
-    win_rate: float
-    pf: float
-    max_drawdown: float
+    The core backtester writes trades with an ``entry_time`` column.  Fallbacks
+    look for a ``begin`` or ``datetime`` column.  Raises if nothing is found.
 
-    def to_dict(self) -> dict:
-        return {
-            "window_start": self.window_start.isoformat(),
-            "window_end": self.window_end.isoformat(),
-            "num_trades": self.num_trades,
-            "total_pnl": self.total_pnl,
-            "total_return": self.total_return,
-            "win_rate": self.win_rate,
-            "pf": self.pf,
-            "max_drawdown": self.max_drawdown,
-        }
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Trades DataFrame loaded from CSV.
 
-
-def _determine_datetime_column(df: pd.DataFrame) -> str:
+    Returns
+    -------
+    str
+        Name of the datetime column.
     """
-    Attempt to guess which column of a trades DataFrame contains the exit
-    timestamps.  Returns the column name.  Raises ValueError if none
-    could be found.
-
-    Preference order:
-      1. ``exit_time``
-      2. ``exit_timestamp``
-      3. ``timestamp``
-      4. ``datetime``
-      5. ``ts``
-      6. any column ending with ``_time`` or ``_timestamp``
-
-    A ValueError is raised if no datetime‑like column is present.
-    """
-    candidates = [
-        "exit_time",
-        "exit_timestamp",
-        "timestamp",
-        "datetime",
-        "ts",
-    ]
-    for c in candidates:
-        if c in df.columns:
-            return c
-    # fallback: any column ending with _time or _timestamp
-    for col in df.columns:
-        if str(col).lower().endswith("_time") or str(col).lower().endswith(
-            "_timestamp"
-        ):
+    for col in ("entry_time", "begin", "datetime"):
+        if col in df.columns:
             return col
-    raise ValueError(
-        "Could not determine a datetime column. The trades file must include a column"
-        " representing exit timestamps, such as 'exit_time'."
-    )
+    raise ValueError("Cannot determine datetime column in trades file")
+
+
+def _get_pnls(df: pd.DataFrame, equity0: float) -> List[float]:
+    """Extract absolute PnL values from a trades DataFrame.
+
+    If a ``pnl`` column is present it is assumed to contain absolute PnL per
+    trade.  Otherwise, if a ``pnl_rel`` column is present it is multiplied by
+    ``equity0`` to convert relative PnL to an absolute value.  Raises if
+    neither column exists.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Trades DataFrame.
+    equity0: float
+        Initial equity used for scaling relative PnL into absolute PnL.
+
+    Returns
+    -------
+    list of float
+        List of absolute PnL values for each trade.
+    """
+    if "pnl" in df.columns:
+        return df["pnl"].astype(float).tolist()
+    if "pnl_rel" in df.columns:
+        return (df["pnl_rel"].astype(float) * float(equity0)).tolist()
+    raise ValueError("Trades file missing both 'pnl' and 'pnl_rel' columns")
 
 
 def run_walk_forward_analysis(
@@ -108,124 +81,123 @@ def run_walk_forward_analysis(
     equity0: float,
     window_days: int,
     step_days: int,
-    out_path: Optional[str] = None,
-) -> List[WFAWindowResult]:
-    """
-    Perform a walk‑forward analysis on a trades CSV.
+    out: Optional[str] = None,
+) -> List[Dict[str, float]]:
+    """Run walk‑forward analysis on a set of trades.
 
     Parameters
     ----------
-    trades_path:
-        Path to the trades CSV. The file must contain a column
-        representing exit timestamps (see ``_determine_datetime_column``)
-        and a ``pnl`` column representing per‑trade absolute PnL.
-
-    equity0:
-        Initial equity baseline used to compute total returns.  When
-        constructing portfolio metrics for a window, the number of
-        active symbols within that window will be taken into account.
-
-    window_days:
-        Length of each window in days.
-
-    step_days:
-        Step size between windows in days.  A new window starts
-        ``step_days`` after the previous window start.
-
-    out_path:
-        Optional path to write the results CSV.  If ``None`` (default)
-        then no file will be written.
+    trades_path: str
+        Path to CSV file containing backtest trades.
+    equity0: float
+        Initial equity used to compute total returns.
+    window_days: int
+        Length of each rolling window in days.
+    step_days: int
+        Step between successive windows in days.
+    out: Optional[str], default ``None``
+        If provided, results are written to this CSV file (parent
+        directories created as needed).
 
     Returns
     -------
-    List[WFAWindowResult]
-        A list of window results.  Each result contains the window
-        start/end and computed portfolio statistics.
+    list of dict
+        A list of dictionaries with metrics for each window.
     """
-    trades_df = pd.read_csv(trades_path)
-    if trades_df.empty:
-        raise ValueError(f"Trades file {trades_path} is empty")
-    time_col = _determine_datetime_column(trades_df)
-    # Parse datetime; assume UTC if no timezone info
-    trades_df[time_col] = pd.to_datetime(trades_df[time_col], utc=False)
-    trades_df = trades_df.sort_values(time_col).reset_index(drop=True)
-    # Ensure pnl exists
-    if "pnl" not in trades_df.columns:
-        raise ValueError(
-            f"Trades file {trades_path} must include a 'pnl' column representing per‑trade PnL."
+    df = pd.read_csv(trades_path)
+    dt_col = _infer_datetime_column(df)
+    # Parse and sort by datetime
+    df[dt_col] = pd.to_datetime(df[dt_col])
+    df = df.sort_values(dt_col).reset_index(drop=True)
+
+    if df.empty:
+        raise ValueError("Trades file is empty; cannot run WFA")
+
+    start_date = df[dt_col].min().normalize()
+    end_date_max = df[dt_col].max().normalize()
+
+    results: List[Dict[str, float]] = []
+    current_start = start_date
+    window_delta = pd.Timedelta(days=window_days)
+    step_delta = pd.Timedelta(days=step_days)
+
+    while current_start <= end_date_max:
+        window_end = current_start + window_delta
+        # Select trades whose entry_time lies within the window
+        mask = (df[dt_col] >= current_start) & (df[dt_col] < window_end)
+        df_window = df.loc[mask]
+        pnls = _get_pnls(df_window, equity0)
+        symbols = df_window["symbol"].unique().tolist() if "symbol" in df_window.columns else []
+        if pnls:
+            stats = build_portfolio_stats(pnls, equity0, symbols)
+            trades_count = len(pnls)
+        else:
+            stats = {
+                "symbols": symbols,
+                "total_pnl": 0.0,
+                "total_return": 0.0,
+                "win_rate": 0.0,
+                "pf": 0.0,
+                "max_drawdown": 0.0,
+            }
+            trades_count = 0
+        results.append(
+            {
+                "window_start": current_start.isoformat(),
+                "window_end": (window_end - pd.Timedelta(seconds=1)).isoformat(),
+                "trades": trades_count,
+                "total_pnl": float(stats["total_pnl"]),
+                "total_return": float(stats["total_return"]),
+                "win_rate": float(stats["win_rate"]),
+                "pf": float(stats["pf"]),
+                "max_drawdown": float(stats["max_drawdown"]),
+            }
         )
-    # Precompute symbol lists per row for portfolio stats
-    # Each row corresponds to one trade on a symbol; we will compute metrics across
-    # all trades in a window and treat all unique symbols as active
-    results: List[WFAWindowResult] = []
-    start_dt = trades_df[time_col].iloc[0]
-    end_dt = trades_df[time_col].iloc[-1]
-    delta_window = timedelta(days=window_days)
-    delta_step = timedelta(days=step_days)
-    window_start = start_dt
-    while window_start <= end_dt:
-        window_end = window_start + delta_window
-        mask = (trades_df[time_col] >= window_start) & (trades_df[time_col] < window_end)
-        trades_win = trades_df.loc[mask]
-        if not trades_win.empty:
-            pnls = trades_win["pnl"].astype(float).tolist()
-            symbols = list(trades_win["symbol"].unique()) if "symbol" in trades_win.columns else []
-            # Compute portfolio stats; use equity0 and number of symbols in window
-            stats = build_portfolio_stats(pnls, equity0, symbols or ["_agg"])
-            result = WFAWindowResult(
-                window_start=window_start.to_pydatetime(),
-                window_end=window_end.to_pydatetime(),
-                num_trades=len(trades_win),
-                total_pnl=float(stats["total_pnl"]),
-                total_return=float(stats["total_return"]),
-                win_rate=float(stats["win_rate"]),
-                pf=float(stats["pf"]),
-                max_drawdown=float(stats["max_drawdown"]),
-            )
-            results.append(result)
-        window_start = window_start + delta_step
-    # Optionally write to file
-    if out_path:
-        out_path = str(out_path)
-        # Convert to DataFrame
-        df_out = pd.DataFrame([r.to_dict() for r in results])
-        df_out.to_csv(out_path, index=False)
+        current_start += step_delta
+
+    # Save if requested
+    if out:
+        out_path = Path(out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(results).to_csv(out_path, index=False)
+        return results
     return results
 
 
-def _main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Perform a walk‑forward analysis on a set of trades."
-    )
+def main() -> None:
+    """CLI entry point for the walk‑forward analysis tool."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Walk‑forward analysis on backtest trades")
     parser.add_argument(
         "--trades-path",
         type=str,
         required=True,
-        help="Path to the aggregated trades CSV (e.g. *_ALL_*_trades.csv).",
+        help="Path to CSV file with trades (from core backtest)",
     )
     parser.add_argument(
         "--equity0",
         type=float,
         default=1_000_000.0,
-        help="Initial equity used for calculating total returns. Defaults to 1,000,000.",
+        help="Initial equity used for total return calculations",
     )
     parser.add_argument(
         "--window-days",
         type=int,
-        default=90,
-        help="Length of each window in days. Defaults to 90 days.",
+        required=True,
+        help="Length of rolling window in days",
     )
     parser.add_argument(
         "--step-days",
         type=int,
-        default=30,
-        help="Step size between windows in days. Defaults to 30 days.",
+        required=True,
+        help="Step between successive windows in days",
     )
     parser.add_argument(
         "--out",
         type=str,
         default=None,
-        help="Optional path for saving the walk‑forward results as CSV.",
+        help="Output CSV for WFA results (optional)",
     )
     args = parser.parse_args()
     run_walk_forward_analysis(
@@ -233,13 +205,5 @@ def _main() -> int:
         equity0=args.equity0,
         window_days=args.window_days,
         step_days=args.step_days,
-        out_path=args.out,
+        out=args.out,
     )
-    print(
-        f"[wfa] Completed walk‑forward analysis; results saved to {args.out if args.out else 'no file'}."
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(_main())
