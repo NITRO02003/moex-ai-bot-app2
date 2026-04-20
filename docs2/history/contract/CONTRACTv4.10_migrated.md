@@ -148,3 +148,16 @@ python -m app2.cli range-v3-make-datasets \
 - Фаза 0 завершена (2026-01-19), baseline-артефакты сохранены в `out/range_v3/`.
 - Инструмент `range-debug-segments` добавлен для диагностики сегментов Range V3.
 - Обновление READMEv4.8 будет выполнено отдельно (по лимиту контекста в чате).
+
+
+
+## Regime Layer Contract (Diagnostic v0)
+
+- Controls ONLY entry permission
+- MUST NOT:
+  - force exit
+  - modify risk
+  - generate signals
+
+- v0 is diagnostic, self-confirming
+- NOT production regime engine

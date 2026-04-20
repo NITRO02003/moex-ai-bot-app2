@@ -115,8 +115,8 @@
 
 В корне репо:
 
-- `data/` — сырые данные MOEX (SBER, GAZP, LKOH, GMKN, ROSN ...);
-- `processed/` — агрегированные бары / вспомогательные датасеты;
+- `data/` — сырые реальные бары MOEX без synthetic empty slots;
+- `processed/` — агрегированные рабочие бары, сохраняющие контракт реального бара; пустые интервалы и `NaN`-бары запрещены;
 - `out/` — все результаты, отчёты, свипы, forward-тесты;
 - `app2/` — текущее боевое ядро (Range V3, rule-based стратегии и т.д.);
 - `app3/` — перспективная модульная архитектура и будущая online-модель;
@@ -554,3 +554,12 @@ C:\Users\nitro\moex-ai-bot\.venv1\Scripts\python.exe -m app2.range.baseline_ml \
 - `out/range_v3/ALL_30m_BASE_catboost_report.json`.
 - `out/range_v3/ALL_30m_BASE_catboost_intrade_feat_*.json` + `out/range_v3/ALL_30m_BASE_catboost_intrade_feat_summary.csv`.
 
+
+
+
+## Current Focus
+
+Phase 2 - Diagnostic Range Isolation
+
+Goal:
+Validate core, NOT optimize.

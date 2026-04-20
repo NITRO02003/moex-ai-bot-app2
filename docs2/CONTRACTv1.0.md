@@ -149,6 +149,29 @@
 
 ## 6. Data and leakage policy
 
+### 6.0. Data contract v0
+Обязательный контракт бара для активного core-контура:
+- один ряд = один реально существовавший торговый бар;
+- обязательные поля: `begin`, `open`, `high`, `low`, `close`, `volume`;
+- `begin` уникален в рамках `(symbol, interval)` и строго возрастает;
+- `open/high/low/close > 0`, `volume >= 0`;
+- `high >= max(open, close, low)` и `low <= min(open, close, high)`;
+- если бара не было - строки нет.
+
+Для `processed/` дополнительно запрещено:
+- полная календарная сетка вместо реальных баров;
+- synthetic empty bars;
+- строки с пустым OHLC или `NaN` как способ кодировать отсутствие торговли.
+
+Loader имеет право делать защитный отсев битых строк, но это страховка, а не основной механизм очистки. Основной контракт обязан соблюдаться на уровне `data/` и `processed/`.
+
+### 6.0.1. Market calendar contract v0
+Календарный слой существует отдельно от барного контракта и отвечает только за ожидание данных:
+- определяет торговый день / неторговый день;
+- определяет, должна ли система ожидать следующий бар;
+- не создаёт бары, не вставляет строки и не лечит `NaN`.
+
+
 ### 6.1. Rolling path
 Запрещено:
 - `shift(-k)` в decision path;
@@ -216,3 +239,16 @@
 - `docs2/history/contract/CONTRACTv4.8_migrated.md`
 - `docs2/history/contract/CONTRACTv4.9_migrated.md`
 - `docs2/history/contract/CONTRACTv4.10_migrated.md`
+
+
+
+## Regime Layer Contract (Diagnostic v0)
+
+- Controls ONLY entry permission
+- MUST NOT:
+  - force exit
+  - modify risk
+  - generate signals
+
+- v0 is diagnostic, self-confirming
+- NOT production regime engine

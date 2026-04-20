@@ -171,6 +171,27 @@
 - depends_on: cli / backtests
 - must_not_do: не хранить исследовательскую истину
 
+### app2/data_pipeline.py
+- layer: data
+- status: active
+- responsibility: агрегировать raw bars из `data/` в clean derived bars в `processed/`
+- depends_on: raw OHLCV, CLI
+- must_not_do: не создавать synthetic empty bars, не кодировать отсутствие торговли через `NaN`-строки
+
+### app2/range/core/data_io.py
+- layer: data / core
+- status: active
+- responsibility: canonical loader для core-контура
+- depends_on: `data/`, `processed/`
+- must_not_do: не принимать `NaN`-bars как норму, не прятать data contract drift
+
+### app2/tools/data_sanity.py
+- layer: tooling / validation
+- status: active
+- responsibility: sanity-check `data/` и `processed/` против data contract v0
+- depends_on: CSV OHLCV, data contract
+- must_not_do: не подменять собой data pipeline, не лечить данные молча
+
 ## 5. Tooling and platform modules
 
 ### app2/tools/leakage_validator.py
@@ -249,3 +270,25 @@
 2. получает responsibility;
 3. получает список `must_not_do`;
 4. добавляется сюда до или одновременно с кодовым патчем.
+
+### app2/range/core/regime_state.py
+- layer: regime / diagnostic
+- status: planned
+- responsibility:
+  - вычисление diagnostic regime states;
+  - hysteresis state machine для Phase 2;
+  - формирование regime timeline и debug metrics;
+  - управление permission-mask для новых входов.
+- depends_on:
+  - core/state_machine outputs
+  - geometry/context features
+  - config params для hysteresis / break conditions
+- must_not_do:
+  - не открывать и не закрывать сделки самостоятельно;
+  - не менять exit policy;
+  - не менять risk profile;
+  - не считаться финальным production regime engine.
+- notes:
+  - слой вводится как diagnostic v0;
+  - допускает self-confirmation и должен быть так и помечен в docs;
+  - обязан писать forensic metrics: blocked_entries_share, active_state_frac, signal_coverage, transition_matrix.

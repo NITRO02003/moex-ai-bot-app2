@@ -125,3 +125,12 @@ python -m app2.cli range-v3-backtest \
 - небольшие примеры `data/` / `processed/` (30m, SBER + несколько тикеров).
 
 С таким пакетом можно восстановить контекст и продолжить разработку без пролистывания старых чатов.
+
+
+
+## Current Focus
+
+Phase 2 - Diagnostic Range Isolation
+
+Goal:
+Validate core, NOT optimize.

@@ -25,9 +25,10 @@
 Текущий общий статус:
 - legacy остаётся только как reference;
 - core является главным объектом развития;
-- dataset/ML pipeline уже начат и является частью боевой архитектуры;
+- dataset/ML pipeline и robustness-инструменты уже существуют, но не доказали наличие edge;
 - project goal = research-project с offline, sandbox и online стадиями;
-- песочница не является главной целью.
+- песочница не является главной целью;
+- ближайший следующий шаг - stabilization data contract для core-контура: `data/` и `processed/` должны хранить только реальные бары без synthetic empty slots; только после этого допустим повторный forensic по active core.
 
 ## 3. Active code zones
 
@@ -60,7 +61,8 @@ Legacy зона:
 3. ambiguity Dataset A truth
 4. leakage risk around offline labels and dataset joins
 5. скрытый architectural drift между core modules
-6. отрицательный baseline — если эталонная стратегия убыточна, оценка AI‑фильтра будет вводить в заблуждение; baseline должен быть выше среднего, иначе фильтр не имеет смысла.
+6. отрицательный baseline - если эталонная стратегия убыточна, оценка AI-фильтра будет вводить в заблуждение; baseline должен быть выше среднего, иначе фильтр не имеет смысла.
+7. возможно отсутствие edge в самой логике Range V3; в таком случае дальнейшие надстройки только маскируют проблему и должны быть заморожены.
 
 ## 5. Current research decisions
 
@@ -72,20 +74,21 @@ Legacy зона:
 - локальные LLM-агенты рассматриваются как вспомогательные инструменты и не считаются source of truth.
 
 Дополнительно принято:
-- baseline стратегии должен демонстрировать положительное ожидание (profit factor, win‑rate и drawdown на приемлемом уровне) перед тем, как сравнивать его с AI‑фильтром;
+- baseline стратегии должен демонстрировать положительное ожидание перед тем, как сравнивать его с AI-фильтром;
 - для построения baseline используется динамический список тикеров из `baseline_symbols.txt`;
-- truth‑policy и dataset_kind обязательно фиксируются в meta‑манифесте каждого dataset;
-- результаты baseline и сравнения с AI‑фильтром сохраняются в `out/` и анализируются перед переходом к sandbox;
-- sandbox больше не считается ближайшим следующим шагом: перед ним нужен отдельный блок устойчивости оценки (WFA / bootstrap / calibration / latency) и ранний `Regime Engine v1`;
-- ensembles, sentiment, dashboard и monitoring перенесены в следующий этап после стабилизации основного контура.
+- truth-policy и dataset_kind обязательно фиксируются в meta-манифесте каждого dataset;
+- все результаты baseline и forensic-диагностики сохраняются в `out/`;
+- до завершения forensic-цикла запрещены новые модели, calibration, Regime Engine, sandbox и online-движение;
+- если найден живой сегмент, сначала вводится тупой rule-filter, и только потом допускается ML-селектор;
+- если живой сегмент не найден, ветка Range V3 замораживается и дальнейшая работа переносится на новую стратегическую гипотезу.
 
 
 Текущий порядок работ:
-1. сначала критические проблемы доверия к результатам (risk truth, artifact parity, temporal split, threshold bias);
-2. затем архитектурная расчистка и техдолг core;
-3. только после этого полноценные тесты;
-4. затем блок устойчивости оценки и режимной адаптации;
-5. sandbox/online не являются ближайшим шагом до закрытия первых трёх блоков.
+1. сначала forensic-отчёт и разрезы по существующим артефактам baseline;
+2. затем проверка временной устойчивости найденных сегментов (`early` / `mid` / `late`);
+3. после этого одно из решений: `rule-filter`, `exit redesign` или `freeze Range V3`;
+4. только при наличии живого rule-based сегмента допускается новый ML-пакет;
+5. sandbox/online не являются ближайшим шагом до завершения этого цикла.
 
 ## 6. Required artifact pack
 
@@ -96,11 +99,12 @@ Legacy зона:
 - минимальный набор `out/` артефактов по последним прогоном;
 - при необходимости notes от внешних reviewers.
 
-При наличии baseline и AI‑фильтра:
+При наличии forensic-цикла по baseline:
 - файл `baseline_symbols.txt` (если использовался нестандартный список);
-- агрегированные метрики baseline и модельного прогона (`*_stats.json`, `*_trades.csv`, `*_per_symbol_stats.csv`);
-- отчёт `range-v3_gating_eval.json` с покрытием и delta по метрикам;
-- сводный CSV, сформированный `range-core-summary`.
+- агрегированные метрики baseline (`*_stats.json`, `*_trades.csv`, `*_per_symbol_stats.csv`);
+- результаты robustness-инструментов (`*_wfa.csv`, `*_cv.csv` или `*.json`, `*_bootstrap.json`, `*_latency.json`);
+- forensic-артефакты (`*_forensic_*.csv`, `*_forensic_*.json`) по символам, exit reasons, хвостам PnL и stability check;
+- если был модельный прогон - `range-v3_gating_eval.json` с покрытием и delta по метрикам.
 
 ## 7. Что нельзя забывать новому чату
 
@@ -109,3 +113,26 @@ Legacy зона:
 - legacy больше не основной объект развития;
 - docs2 - новая система source of truth;
 - любые дальнейшие roadmap и патчи должны опираться на docs2, а не на старые ощущения о проекте.
+
+
+
+## === UPDATED MIGRATION STATE ===
+
+Current Phase: Phase 2 - Diagnostic Range Isolation
+
+Previous:
+- Phase 0: Data Contract Stabilization (DONE)
+- Phase 1: Core Revalidation (DONE)
+
+Objective:
+Validate range-core in isolated regime.
+
+Execution Protocol:
+1. baseline
+2. mask gate
+3. state machine
+4. pooled comparison
+
+Decision:
+- viable → Phase 3
+- not viable → redesign core

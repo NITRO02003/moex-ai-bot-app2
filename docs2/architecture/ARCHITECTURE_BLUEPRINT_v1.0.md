@@ -85,15 +85,22 @@
 Ответственность:
 - загрузка данных;
 - нормализация OHLCV;
-- alignment;
+- агрегация таймфреймов;
 - data validation;
 - контроль корректности источников.
+
+Контракт слоя:
+- bar contract = только реальные бары;
+- если бара не было - строки нет;
+- `processed/` хранит clean derived bars, а не полную календарную сетку;
+- synthetic empty slots и `NaN`-bars запрещены;
+- market calendar живёт отдельно и только объясняет, должна ли система ожидать данные.
 
 Ожидаемые / будущие модули:
 - loaders
 - normalizers
-- alignment
 - validators
+- market calendar
 
 ### 3.2. Research Feature Layer
 Ответственность:
@@ -275,3 +282,83 @@
 - `docs2/history/contract/CONTRACTv4.10_migrated.md`
 - `docs2/history/model_plan/model_plan_v0.3_migrated.md`
 - `docs2/history/model_plan/model_plan_v0.4_migrated.md`
+
+## 6. Diagnostic Regime Layer v0
+
+### 6.1. Роль слоя
+
+Diagnostic Regime Layer v0 вводится как временный диагностический слой между feature/state-machine слоем и strategy/execution слоем.
+
+Новый порядок для Phase 2:
+Data Layer -> Feature / Geometry -> Diagnostic Regime Layer -> Range Strategy -> Execution / Risk
+
+Смысл:
+- не дать range-логике торговать чужой режим;
+- не смешивать detector и execution в одном месте;
+- получить честный A/B verdict по роли context gating.
+
+### 6.2. Почему это не production regime engine
+
+Regime Layer v0:
+- допускает self-confirmation;
+- использует признаки, близкие к уже существующим признакам range-core;
+- не предназначен как финальный detector режима;
+- не решает задачу полноценного routing между range / trend / expansion.
+
+Следовательно:
+- это diagnostic layer;
+- он не должен маскироваться под completed regime engine;
+- его результаты используются только для Phase 2 verdict.
+
+### 6.3. State model
+
+Минимальная state model для v0:
+- inactive
+- candidate
+- active
+- broken
+
+Назначение:
+- убрать дребезг bar-by-bar filtering;
+- ввести hysteresis;
+- отделить потерю режима от немедленного выхода из позиции.
+
+### 6.4. Rules of influence
+
+Diagnostic Regime Layer v0 имеет право:
+- разрешать или запрещать новые входы;
+- сохранять debug timeline состояний;
+- писать forensic metrics по состояниям и переходам.
+
+Diagnostic Regime Layer v0 не имеет права:
+- самостоятельно закрывать позиции при любой смене состояния;
+- менять exit policy;
+- менять risk policy;
+- подменять собой future strategy router.
+
+### 6.5. Execution protocol for Phase 2
+
+Обязательная последовательность экспериментов:
+1. current core baseline
+2. simple mask gating baseline
+3. regime state machine v0
+
+Сравнение обязательно выполняется:
+- на pooled all 10min;
+- на pooled top cohort;
+- на pooled bottom cohort.
+
+Без этой последовательности нельзя делать вывод о ценности state machine.
+
+### 6.6. Definition of done linkage
+
+Phase 2 считается завершенной только если:
+- выполнен весь экспериментальный протокол;
+- есть pooled verdict;
+- принято решение:
+  - range-core viable under regime isolation
+  - или range-core requires redesign.
+
+После этого:
+- либо начинается Phase 3;
+- либо открывается отдельный redesign track для range-core.

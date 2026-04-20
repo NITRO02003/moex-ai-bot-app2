@@ -952,3 +952,18 @@ PF ≥ 2.0,
 
 - Детальный контракт по агентскому режиму: `docs/CONTRACTv4.8.md`, раздел «ТЗ для агентского режима».
 - Общая архитектура AI-ядра и MTL: текущий документ `docs/model_plan_v0.3.md`.
+
+
+
+## Experimental Protocol (Phase 2)
+
+1. baseline
+2. mask
+3. state machine
+
+Evaluation:
+- pooled
+- top cohort
+- bottom cohort
+
+Deviation invalidates results.

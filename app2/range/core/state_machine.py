@@ -236,3 +236,139 @@ def build_range_states(df: pd.DataFrame, params: RangeV3Params) -> Tuple[pd.Data
             debug_info["geometry_error"] = repr(exc)
 
     return sig_df, debug_info
+
+def _series_bool(values: pd.Series, index: pd.Index) -> pd.Series:
+    if values is None:
+        return pd.Series(False, index=index, dtype=bool)
+    out = values.reindex(index)
+    return out.fillna(False).astype(bool)
+
+
+def build_regime_gate(
+    sig_df: pd.DataFrame,
+    params: RangeV3Params,
+    mode: str = "off",
+    mask_confirm_bars: int = 3,
+    mask_min_active_frac: float = 0.67,
+    state_candidate_bars: int = 3,
+    state_broken_bars: int = 2,
+) -> Tuple[pd.Series | None, Dict[str, object], pd.DataFrame]:
+    """Построить диагностический regime gate поверх baseline-сигналов.
+
+    Правила этапа Phase 2:
+    - gate управляет только разрешением новых входов;
+    - gate не меняет exit/risk/features;
+    - gate не переписывает baseline-сигналы, а только возвращает allow-mask.
+
+    Возвращает:
+    - allow_mask: bool Series либо None для режима off;
+    - gate_info: словарь с диагностикой gating;
+    - annotated_sig_df: копия sig_df с колонками диагностики gate.
+    """
+    annotated = sig_df.copy()
+    index = annotated.index
+    raw_signal = annotated.get("v3_signal", pd.Series(0.0, index=index)).fillna(0.0)
+    raw_signal_mask = raw_signal != 0
+
+    base_eligible = (
+        annotated.get("v3_L", pd.Series(index=index, dtype=float)).notna()
+        & annotated.get("v3_U", pd.Series(index=index, dtype=float)).notna()
+        & (~_series_bool(annotated.get("v3_breakout"), index))
+    )
+    base_eligible = base_eligible.fillna(False).astype(bool)
+
+    allow_mask: pd.Series | None = None
+    state_series = pd.Series("off", index=index, dtype=object)
+
+    mode_normalized = str(mode or "off").strip().lower()
+    if mode_normalized == "off":
+        allow_mask = None
+    elif mode_normalized == "mask":
+        confirm_bars = max(int(mask_confirm_bars), 1)
+        min_frac = float(mask_min_active_frac)
+        min_frac = min(max(min_frac, 0.0), 1.0)
+        persist_frac = base_eligible.astype(float).rolling(window=confirm_bars, min_periods=confirm_bars).mean()
+        allow_mask = (persist_frac >= min_frac).fillna(False)
+        state_series.loc[allow_mask] = "active"
+        state_series.loc[(~allow_mask) & base_eligible] = "candidate"
+        annotated["regime_persist_frac"] = persist_frac
+    elif mode_normalized == "state_v0":
+        candidate_bars = max(int(state_candidate_bars), 1)
+        broken_bars = max(int(state_broken_bars), 1)
+        allow_values = []
+        state_values = []
+        state = "inactive"
+        good_streak = 0
+        bad_streak = 0
+        for eligible in base_eligible.astype(bool).tolist():
+            if state == "inactive":
+                if eligible:
+                    good_streak = 1
+                    bad_streak = 0
+                    state = "candidate"
+                else:
+                    good_streak = 0
+                    bad_streak = 0
+            elif state == "candidate":
+                if eligible:
+                    good_streak += 1
+                    if good_streak >= candidate_bars:
+                        state = "active"
+                        bad_streak = 0
+                else:
+                    state = "inactive"
+                    good_streak = 0
+                    bad_streak = 0
+            elif state == "active":
+                if eligible:
+                    bad_streak = 0
+                else:
+                    state = "broken"
+                    bad_streak = 1
+            elif state == "broken":
+                if eligible:
+                    state = "active"
+                    good_streak = candidate_bars
+                    bad_streak = 0
+                else:
+                    bad_streak += 1
+                    if bad_streak >= broken_bars:
+                        state = "inactive"
+                        good_streak = 0
+                        bad_streak = 0
+            allow_values.append(state == "active")
+            state_values.append(state)
+        allow_mask = pd.Series(allow_values, index=index, dtype=bool)
+        state_series = pd.Series(state_values, index=index, dtype=object)
+    else:
+        raise ValueError(f"Unsupported regime gate mode: {mode}")
+
+    annotated["regime_base_eligible"] = base_eligible
+    annotated["regime_state"] = state_series
+    annotated["regime_allow"] = True if allow_mask is None else allow_mask.astype(bool)
+
+    raw_signals = int(raw_signal_mask.sum())
+    allowed_signals = raw_signals if allow_mask is None else int((raw_signal_mask & allow_mask).sum())
+    blocked_signals = 0 if allow_mask is None else int((raw_signal_mask & (~allow_mask)).sum())
+    signal_coverage = float(allowed_signals / raw_signals) if raw_signals > 0 else 0.0
+    blocked_entries_share = float(blocked_signals / raw_signals) if raw_signals > 0 else 0.0
+
+    state_counts = state_series.value_counts(dropna=False).to_dict()
+    state_fracs = {f"{str(k)}_frac": float(v / len(state_series)) for k, v in state_counts.items()} if len(state_series) > 0 else {}
+    gate_info: Dict[str, object] = {
+        "mode": mode_normalized,
+        "base_eligible_frac": float(base_eligible.mean()) if len(base_eligible) > 0 else 0.0,
+        "raw_signals": raw_signals,
+        "allowed_signals": allowed_signals,
+        "blocked_signals": blocked_signals,
+        "blocked_entries_share": blocked_entries_share,
+        "signal_coverage": signal_coverage,
+        "active_state_frac": float((state_series == "active").mean()) if len(state_series) > 0 else 0.0,
+        "state_counts": {str(k): int(v) for k, v in state_counts.items()},
+        "mask_confirm_bars": int(mask_confirm_bars),
+        "mask_min_active_frac": float(mask_min_active_frac),
+        "state_candidate_bars": int(state_candidate_bars),
+        "state_broken_bars": int(state_broken_bars),
+    }
+    gate_info.update(state_fracs)
+    return allow_mask, gate_info, annotated

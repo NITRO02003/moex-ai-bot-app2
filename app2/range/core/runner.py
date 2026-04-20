@@ -14,6 +14,7 @@ from .data_io import (
     _load_ohlcv,
 )
 from .engine import run_core_for_symbol
+from .state_machine import build_regime_gate
 from .entry_gating import apply_entry_ai_filter
 from .execution import run_trades_from_signals
 from .reporting import (
@@ -49,6 +50,11 @@ def run_symbol_task(
         float,
         bool,
         List[str],
+        str,
+        int,
+        float,
+        int,
+        int,
     ],
 ) -> Tuple[str, Optional[Dict[str, Any]], pd.DataFrame]:
     """Run backtest for a single symbol and persist per-symbol artifacts.
@@ -80,6 +86,11 @@ def run_symbol_task(
         entry_trend_slope_k,
         no_hold_weekend,
         entry_feature_cols,
+        regime_gate_mode,
+        regime_gate_confirm_bars,
+        regime_gate_min_active_frac,
+        regime_state_candidate_bars,
+        regime_state_broken_bars,
     ) = args
     try:
         df = _load_ohlcv(symbol, interval)
@@ -87,8 +98,22 @@ def run_symbol_task(
         # No data available: skip this symbol
         return symbol, None, pd.DataFrame()
 
-    # Run the core engine to get signals and debug information
+    # Run the core engine to get baseline signals and debug information
     sig_df, debug_info = run_core_for_symbol(df, params)
+
+    regime_allow_mask, regime_gate_info, sig_df = build_regime_gate(
+        sig_df,
+        params,
+        mode=regime_gate_mode,
+        mask_confirm_bars=regime_gate_confirm_bars,
+        mask_min_active_frac=regime_gate_min_active_frac,
+        state_candidate_bars=regime_state_candidate_bars,
+        state_broken_bars=regime_state_broken_bars,
+    )
+    if debug_info:
+        debug_info = dict(debug_info)
+        debug_info["regime_gate"] = regime_gate_info
+
     # Optional AI-based entry gating
     entry_allow_mask, entry_ai_stats = apply_entry_ai_filter(
         sig_df,
@@ -104,18 +129,39 @@ def run_symbol_task(
         entry_trend_slope_k,
         entry_feature_cols,
     )
+    combined_allow_mask = entry_allow_mask
+    if regime_allow_mask is not None and combined_allow_mask is None:
+        combined_allow_mask = regime_allow_mask
+    elif regime_allow_mask is not None and combined_allow_mask is not None:
+        combined_allow_mask = regime_allow_mask & combined_allow_mask
+
     # Execute trades and compute per-symbol metrics
     trades, metrics = run_trades_from_signals(
         symbol,
         sig_df,
         params,
         equity0,
-        entry_allow_mask=entry_allow_mask,
+        entry_allow_mask=combined_allow_mask,
         no_hold_weekend=no_hold_weekend,
     )
-    # Merge AI gating statistics into metrics, if any
+    trades_df = trades_to_df(trades)
+
+    # Merge gating diagnostics into metrics
+    if regime_gate_info:
+        metrics.update({f"regime_gate_{k}": v for k, v in regime_gate_info.items() if k != "state_counts"})
+        metrics["regime_gate_state_counts"] = str(regime_gate_info.get("state_counts", {}))
     if entry_ai_stats:
         metrics.update(entry_ai_stats)
+
+    if not trades_df.empty and "exit_reason" in trades_df.columns:
+        exit_reason_share = trades_df["exit_reason"].fillna("unknown").value_counts(normalize=True).to_dict()
+        metrics["tp_share"] = float(exit_reason_share.get("tp", 0.0))
+        metrics["sl_share"] = float(exit_reason_share.get("sl", 0.0))
+        metrics["timeout_share"] = float(exit_reason_share.get("timeout", 0.0))
+    else:
+        metrics["tp_share"] = 0.0
+        metrics["sl_share"] = 0.0
+        metrics["timeout_share"] = 0.0
     # Persist per-symbol outputs: stats, trades, snapshots and debug information
     save_symbol_outputs(
         out_prefix=out_prefix,
@@ -127,8 +173,6 @@ def run_symbol_task(
         debug_info=debug_info,
         sig_df=sig_df,
     )
-    trades_df = trades_to_df(trades)
-
     print(
         f"[range-v3] {symbol}: trades={len(trades)} "
         f"pf={metrics['pf']:.3f} win_rate={metrics['win_rate']:.3f}"
@@ -163,6 +207,11 @@ def run_range_backtest(args) -> None:
     entry_trend_slope_k = float(getattr(args, "entry_trend_slope_k", 0.0))
     no_hold_weekend = bool(getattr(args, "no_hold_weekend", False))
     entry_feature_cols = _parse_list(getattr(args, "entry_feature_include", ""))
+    regime_gate_mode = str(getattr(args, "regime_gate_mode", "off") or "off")
+    regime_gate_confirm_bars = int(getattr(args, "regime_gate_confirm_bars", 3) or 3)
+    regime_gate_min_active_frac = float(getattr(args, "regime_gate_min_active_frac", 0.67) or 0.67)
+    regime_state_candidate_bars = int(getattr(args, "regime_state_candidate_bars", 3) or 3)
+    regime_state_broken_bars = int(getattr(args, "regime_state_broken_bars", 2) or 2)
     if not entry_feature_cols:
         from ..baseline_ml import COMPACT_FEATURES as _DEFAULT_FEATURES
         entry_feature_cols = _DEFAULT_FEATURES
@@ -240,6 +289,11 @@ def run_range_backtest(args) -> None:
             entry_trend_slope_k,
             no_hold_weekend,
             entry_feature_cols,
+            regime_gate_mode,
+            regime_gate_confirm_bars,
+            regime_gate_min_active_frac,
+            regime_state_candidate_bars,
+            regime_state_broken_bars,
         )
         for symbol in symbols
     ]

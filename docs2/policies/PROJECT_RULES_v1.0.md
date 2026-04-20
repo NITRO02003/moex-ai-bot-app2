@@ -40,8 +40,8 @@
 
 ### 2.1. Структура директорий
 В корне репозитория:
-- `data/` - сырые данные
-- `processed/` - агрегированные бары и подготовленные временные ряды
+- `data/` - сырые реальные бары
+- `processed/` - clean derived bars: агрегированные рабочие бары без synthetic empty slots и без `NaN`-bar rows
 - `out/` - результаты, отчёты, свипы, forward-тесты
 - `docs/` / `docs2/` - документация
 - `app2/` - основной рабочий контур
@@ -129,3 +129,13 @@ python -m app2.cli <command> [аргументы]
 - миграция нового чата без чтения source-of-truth документов и правил;
 - выпуск новой версии файла без реального изменения source of truth;
 - россыпь нескольких рабочих версий одного семейства в корне `docs2/`.
+
+
+
+## Phase Enforcement Rule
+
+Each phase must:
+- have Definition of Done
+- have transition criteria
+
+No phase skipping allowed.

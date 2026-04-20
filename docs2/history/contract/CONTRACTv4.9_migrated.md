@@ -224,3 +224,16 @@ CONTRACTv4.9 покрывает:
 
 Этот CONTRACTv4.9 действует до появления следующей версии (CONTRACTv5.x), которая будет описывать уже
 online-модель, event-driven ядро и более сложные требования к риск-менеджменту и контролю leakage.
+
+
+
+## Regime Layer Contract (Diagnostic v0)
+
+- Controls ONLY entry permission
+- MUST NOT:
+  - force exit
+  - modify risk
+  - generate signals
+
+- v0 is diagnostic, self-confirming
+- NOT production regime engine

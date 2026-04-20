@@ -344,3 +344,12 @@ C:\Users\nitro\moex-ai-bot\.venv1\Scripts\python.exe -m app2.range.baseline_ml \
 - `out/range_v3/ALL_30m_BASE_feature_report.json` + `*_entry.csv` + `*_intrade.csv`.
 - `out/range_v3/ALL_30m_BASE_catboost_report.json`.
 - `out/range_v3/ALL_30m_BASE_catboost_intrade_feat_*.json` + `out/range_v3/ALL_30m_BASE_catboost_intrade_feat_summary.csv`.
+
+
+
+## Current Focus
+
+Phase 2 - Diagnostic Range Isolation
+
+Goal:
+Validate core, NOT optimize.

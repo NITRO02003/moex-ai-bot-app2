@@ -343,3 +343,16 @@ debug_info: Dict[str, Any]
 
 2. Старые версии CONTRACT и README **не удаляются**, а служат историей для миграций между чатами и окружениями.
 
+
+
+
+## Regime Layer Contract (Diagnostic v0)
+
+- Controls ONLY entry permission
+- MUST NOT:
+  - force exit
+  - modify risk
+  - generate signals
+
+- v0 is diagnostic, self-confirming
+- NOT production regime engine

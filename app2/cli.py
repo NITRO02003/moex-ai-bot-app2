@@ -324,7 +324,7 @@ def cmd_range_core_wfa(args):
         equity0=args.equity0,
         window_days=args.window_days,
         step_days=args.step_days,
-        out_path=args.out,
+        out=args.out,
     )
     print(
         f"[range-core-wfa] Completed walk‑forward analysis on {args.trades_path}; "
@@ -800,6 +800,37 @@ def main():
         type=str,
         default="",
         help="Comma-separated entry feature list for AI gating (core only)",
+    )
+    p_rv3.add_argument(
+        "--regime-gate-mode",
+        type=str,
+        choices=["off", "mask", "state_v0"],
+        default="off",
+        help="Diagnostic regime gate for new entries only: off, mask, or state_v0 (core only)",
+    )
+    p_rv3.add_argument(
+        "--regime-gate-confirm-bars",
+        type=int,
+        default=3,
+        help="Lookback bars for simple mask gate persistence (core only)",
+    )
+    p_rv3.add_argument(
+        "--regime-gate-min-active-frac",
+        type=float,
+        default=0.67,
+        help="Minimum eligible-bar fraction inside mask lookback to allow entries (core only)",
+    )
+    p_rv3.add_argument(
+        "--regime-state-candidate-bars",
+        type=int,
+        default=3,
+        help="Eligible bars required to move candidate -> active in state_v0 (core only)",
+    )
+    p_rv3.add_argument(
+        "--regime-state-broken-bars",
+        type=int,
+        default=2,
+        help="Ineligible bars required to move broken -> inactive in state_v0 (core only)",
     )
     p_rv3.add_argument(
         "--no-hold-weekend",

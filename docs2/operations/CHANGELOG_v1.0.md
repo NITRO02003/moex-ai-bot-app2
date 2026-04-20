@@ -80,3 +80,22 @@ model_plan:
 - `Regime Engine v1` поднят в ранний следующий этап после стабилизации core и честного ML-контура.
 - Ensembles / stacking, sentiment, dashboard и monitoring перенесены на следующий этап и не входят в ближайший приоритетный блок.
 - `MIGRATION_CONTEXT_v1.0.md` обновлён под новый порядок работ: сначала trust fixes, затем robustness/regime block, и только потом sandbox / online bridge.
+
+## Updates (2026-04-17, part 3)
+
+### Смена вектора разработки на forensic-first
+
+- В `model_plan_v1.0.md` зафиксирован новый текущий приоритет: сначала forensic-отчёт и приговор ядру Range V3, а не новые модели, calibration или sandbox.
+- Добавлен критерий живого сегмента: `pf > 1.05`, лучше `> 1.1`, с достаточным числом сделок и обязательной временной проверкой по `early` / `mid` / `late`.
+- В `RESEARCH_POLICY_v1.0.md` закреплено правило `rule-filter before ML`: сначала тупой фильтр на найденном сегменте, и только потом допускается ML-селектор.
+- В `MIGRATION_CONTEXT_v1.0.md` обновлён порядок работ: forensic-разрезы, stability check, затем развилка `rule-filter` / `exit redesign` / `freeze Range V3`.
+- Зафиксирована пауза на новые модели, Regime Engine, calibration, sandbox и online-движение до завершения forensic-цикла.
+
+
+
+### Regime Diagnostic Shift
+
+- baseline failure confirmed
+- data layer fixed
+- issue localized to regime/gating
+- Phase 2 started

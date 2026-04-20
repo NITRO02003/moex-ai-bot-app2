@@ -1,9 +1,11 @@
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, List
 
 import pandas as pd
+
+from ...paths import ROOT
+
 
 def _load_range_config(path: str) -> Dict[str, Any]:
     """
@@ -11,18 +13,6 @@ def _load_range_config(path: str) -> Dict[str, Any]:
     parameter dictionary with any risk profile overrides defined in the same
     file. The JSON structure is expected to mirror the RangeV3 config
     convention used throughout this project.
-
-    Parameters
-    ----------
-    path : str
-        Filesystem path to a JSON configuration file.
-
-    Returns
-    -------
-    dict
-        A flat dictionary of parameter values after applying any profile
-        overrides. If the file is missing or malformed, an exception is
-        propagated to the caller.
     """
     with open(path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
@@ -30,45 +20,21 @@ def _load_range_config(path: str) -> Dict[str, Any]:
     params = dict(range_cfg.get("params", {}))
     profile_name = str(range_cfg.get("risk_profile", "") or "")
     profiles = range_cfg.get("risk_profiles", {})
-    # If a risk profile is defined, apply its overrides.  In addition,
-    # remove any keys from the base params that also appear in the
-    # profile.  This enforces a single source of truth for risk
-    # parameters: they must live only inside the risk_profiles
-    # dictionary, not be duplicated in the base params.
     if profile_name and isinstance(profiles, dict):
         overrides = profiles.get(profile_name)
         if isinstance(overrides, dict):
-            # Remove duplicate keys from base params to avoid drift
             for key in overrides.keys():
                 if key in params:
                     del params[key]
-            # Apply risk profile overrides
             params.update(overrides)
     return params
 
 
 def _list_available_symbols(interval: str) -> List[str]:
-    """
-    Return a sorted list of symbols for which OHLCV data is available.
-
-    The function first looks in the processed/ directory for files named
-    {symbol}_{interval}.csv and then in the data/ directory for generic
-    {symbol}.csv files. The combined set of symbols is deduplicated and
-    sorted alphabetically.
-
-    Parameters
-    ----------
-    interval : str
-        The bar interval suffix used in processed file names (e.g. "5m").
-
-    Returns
-    -------
-    list[str]
-        A sorted list of symbol names.
-    """
+    """Return a sorted list of symbols for which OHLCV data is available."""
     symbols: List[str] = []
-    processed_dir = Path("processed")
-    data_dir = Path("data")
+    processed_dir = ROOT / "processed"
+    data_dir = ROOT / "data"
     if processed_dir.exists():
         for p in processed_dir.glob(f"*_{interval}.csv"):
             name = p.name
@@ -81,120 +47,43 @@ def _list_available_symbols(interval: str) -> List[str]:
 
 
 def _find_data_path(symbol: str, interval: str) -> str:
-    """
-    Determine the best path to the OHLCV CSV for a given symbol and interval.
-
-    The function prefers the processed/{symbol}_{interval}.csv file if it
-    exists; otherwise it falls back to data/{symbol}.csv. If neither file
-    exists, it raises FileNotFoundError.
-
-    Parameters
-    ----------
-    symbol : str
-        The ticker symbol to look up.
-    interval : str
-        The bar interval suffix used in processed file names.
-
-    Returns
-    -------
-    str
-        Path to the CSV file containing OHLCV data.
-
-    Raises
-    ------
-    FileNotFoundError
-        If no matching file is found.
-    """
-    fname_processed = os.path.join("processed", f"{symbol}_{interval}.csv")
-    fname_data = os.path.join("data", f"{symbol}.csv")
-    if os.path.exists(fname_processed):
-        return fname_processed
-    if os.path.exists(fname_data):
-        return fname_data
+    """Prefer processed/{symbol}_{interval}.csv and fallback to data/{symbol}.csv."""
+    fname_processed = ROOT / "processed" / f"{symbol}_{interval}.csv"
+    fname_data = ROOT / "data" / f"{symbol}.csv"
+    if fname_processed.exists():
+        return str(fname_processed)
+    if fname_data.exists():
+        return str(fname_data)
     raise FileNotFoundError(
         f"Cannot find data for {symbol}: tried {fname_processed} and {fname_data}"
     )
 
 
 def _load_ohlcv(symbol: str, interval: str) -> pd.DataFrame:
-    """
-    Load OHLCV data for a given symbol and interval.
-
-    The function locates the appropriate CSV using `_find_data_path`, loads
-    it into a DataFrame, infers and normalizes the datetime column, and
-    ensures the required OHLC columns exist. If the volume column is
-    missing, it is synthesized as zeros.
-
-    Parameters
-    ----------
-    symbol : str
-        The ticker symbol to load.
-    interval : str
-        The bar interval suffix used in processed file names.
-
-    Returns
-    -------
-    pandas.DataFrame
-        A DataFrame indexed by datetime with columns: open, high, low, close,
-        volume and any other original columns preserved.
-
-    Raises
-    ------
-    ValueError
-        If required OHLC columns are missing.
-    """
+    """Load OHLCV data and enforce the active data contract for core."""
     path = _find_data_path(symbol, interval)
     df = pd.read_csv(path)
 
-    # attempt to infer the datetime column by searching for common names
     dt_col = None
     for c in df.columns:
         lc = c.lower()
-        if "time" in lc or "date" in lc or "dt" in lc:
+        if "time" in lc or "date" in lc or lc in {"begin", "end", "timestamp", "ts"}:
             dt_col = c
             break
     if dt_col is None:
-        for c in df.columns:
-            lc = c.lower()
-            if lc in ("begin", "end", "timestamp", "ts"):
-                dt_col = c
-                break
-    if dt_col is None:
-        # fallback to the first column if nothing matches
         dt_col = df.columns[0]
 
-    df[dt_col] = pd.to_datetime(df[dt_col])
-    df = df.sort_values(dt_col).reset_index(drop=True).set_index(dt_col)
+    df[dt_col] = pd.to_datetime(df[dt_col], errors="coerce")
+    df = df.dropna(subset=[dt_col]).sort_values(dt_col).reset_index(drop=True).set_index(dt_col)
 
-    # ------------------------------------------------------------------
-    # Data integrity checks.  Enforce a monotonic time index, ensure
-    # there are no duplicate timestamps, and verify a minimum number of
-    # bars.  These checks help detect corrupt or undersized datasets
-    # early.  If any check fails, raise a ValueError with context.
-    #
-    # Sorting above ensures the index is monotonic if the timestamps
-    # themselves are strictly increasing, but we double‑check and
-    # re‑sort to cover edge cases.  Duplicate timestamps are not
-    # allowed because they break roll computations.  Finally, tiny
-    # datasets (fewer than 10 bars) are rejected because statistics
-    # like ATR or slope become unstable.
-    # ------------------------------------------------------------------
-    # Ensure monotonicity
     if not df.index.is_monotonic_increasing:
         df = df.sort_index()
-    # Detect duplicate timestamps
     if df.index.has_duplicates:
         dup_count = int(df.index.duplicated().sum())
         raise ValueError(
             f"Data for {symbol} contains {dup_count} duplicate timestamps in {path}"
         )
-    # Ensure minimum number of bars
-    if len(df) < 10:
-        raise ValueError(
-            f"Data for {symbol} has too few rows (<10) in {path}: {len(df)}"
-        )
 
-    # normalize common OHLC column names to canonical lower-case names
     rename_map: Dict[str, str] = {}
     for c in df.columns:
         lc = c.lower()
@@ -210,13 +99,33 @@ def _load_ohlcv(symbol: str, interval: str) -> pd.DataFrame:
             rename_map[c] = "volume"
     df = df.rename(columns=rename_map)
 
-    # ensure required columns are present
-    for col in ["open", "high", "low", "close"]:
+    required_price_cols = ["open", "high", "low", "close"]
+    for col in required_price_cols:
         if col not in df.columns:
             raise ValueError(
                 f"Data for {symbol} missing required column '{col}' in {path}"
             )
     if "volume" not in df.columns:
         df["volume"] = 0.0
+
+    required_cols = ["open", "high", "low", "close", "volume"]
+    df = df.dropna(subset=required_cols).copy()
+
+    if len(df) < 10:
+        raise ValueError(
+            f"Data for {symbol} has too few valid rows (<10) in {path}: {len(df)}"
+        )
+    if (df[required_price_cols] <= 0).any().any():
+        raise ValueError(f"Data for {symbol} contains non-positive OHLC values in {path}")
+    if (df["volume"] < 0).any():
+        raise ValueError(f"Data for {symbol} contains negative volume in {path}")
+
+    invalid_ohlc = (
+        (df["high"] < df[["open", "close", "low"]].max(axis=1))
+        | (df["low"] > df[["open", "close", "high"]].min(axis=1))
+        | (df["high"] < df["low"])
+    )
+    if bool(invalid_ohlc.any()):
+        raise ValueError(f"Data for {symbol} contains invalid OHLC rows in {path}")
 
     return df

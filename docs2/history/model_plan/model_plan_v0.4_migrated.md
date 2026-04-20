@@ -235,3 +235,18 @@
 
 Этот план v0.4 задаёт реальный, исполнимый маршрут от текущего убыточного Range baseline к
 модульному core_v4 и далее к online-модели, не бросаясь сразу в избыточную архитектуру.
+
+
+
+## Experimental Protocol (Phase 2)
+
+1. baseline
+2. mask
+3. state machine
+
+Evaluation:
+- pooled
+- top cohort
+- bottom cohort
+
+Deviation invalidates results.
